@@ -3,6 +3,7 @@
 /// Implements sponsored transactions for Aptos payments:
 /// - Users sign transactions directly (they are the signer)
 /// - Facilitator pays gas via fee payer mechanism
+/// - Supports both Coin and Fungible Asset (FA) standards
 /// - Supports multi-recipient splits for platform fees
 /// - Replay protection via nonce registry
 ///
@@ -15,15 +16,19 @@
 /// - Event emission for tracking
 ///
 /// Recommended Functions:
-/// - transfer_direct: User pays own gas and transfers
-/// - transfer_sponsored: Facilitator pays gas, user transfers (single recipient)
-/// - transfer_sponsored_split: Facilitator pays gas, user transfers (multiple recipients)
+/// - transfer_sponsored: Facilitator pays gas, user transfers APT Coin (single recipient)
+/// - transfer_sponsored_split: Facilitator pays gas, user transfers APT Coin (multiple recipients)
+/// - transfer_sponsored_fa: Facilitator pays gas, user transfers FA (single recipient)
+/// - transfer_sponsored_fa_split: Facilitator pays gas, user transfers FA (multiple recipients)
 
 module x402a::x402_transfer {
     use std::signer;
     use std::vector;
     use aptos_framework::coin;
     use aptos_framework::aptos_coin::AptosCoin;
+    use aptos_framework::fungible_asset::Metadata;
+    use aptos_framework::object::{Self, Object};
+    use aptos_framework::primary_fungible_store;
     use aptos_framework::event;
     use aptos_framework::timestamp;
     use aptos_std::smart_table::{Self, SmartTable};
@@ -131,6 +136,29 @@ module x402a::x402_transfer {
         timestamp: u64,
     }
 
+    #[event]
+    struct TransferFAEvent has drop, store {
+        from: address,
+        to: address,
+        amount: u64,
+        fa_metadata: address,
+        nonce: vector<u8>,
+        facilitator: address,
+        timestamp: u64,
+    }
+
+    #[event]
+    struct TransferFASplitEvent has drop, store {
+        from: address,
+        recipients: vector<address>,
+        amounts: vector<u64>,
+        total_amount: u64,
+        fa_metadata: address,
+        nonce: vector<u8>,
+        facilitator: address,
+        timestamp: u64,
+    }
+
     // ============================================================
     // INITIALIZATION
     // ============================================================
@@ -159,7 +187,7 @@ module x402a::x402_transfer {
     }
 
     // ============================================================
-    // PUBLIC ENTRY FUNCTIONS
+    // PUBLIC ENTRY FUNCTIONS - COIN (APT)
     // ============================================================
 
     /// Transfer APT directly from user (SIMPLIFIED VERSION - NO SIGNATURE VERIFICATION)
@@ -448,6 +476,195 @@ module x402a::x402_transfer {
 
         // Postcondition: nonce is marked as used
         ensures smart_table::spec_contains(global<NonceRegistry>(from).used_nonces, nonce);
+    }
+
+    // ============================================================
+    // PUBLIC ENTRY FUNCTIONS - FUNGIBLE ASSET (FA)
+    // ============================================================
+
+    /// Transfer Fungible Asset using fee payer (sponsored transaction)
+    ///
+    /// This function works with any Fungible Asset that uses primary stores.
+    /// The user signs the transaction and their FA is transferred, while the
+    /// facilitator pays gas through the Aptos fee payer mechanism.
+    ///
+    /// @param user - The user account (signer) who owns and authorizes the transfer
+    /// @param fa_metadata - The metadata object of the Fungible Asset
+    /// @param to - Recipient address
+    /// @param amount - Amount to transfer
+    /// @param nonce - Unique identifier to prevent replay attacks
+    /// @param valid_until - Unix timestamp when authorization expires
+    /// @param chain_id - Chain ID (1=mainnet, 2=testnet, 3=devnet) for replay protection
+    ///
+    /// Security features:
+    /// - All standard validations from transfer_sponsored
+    /// - Works with any FA using primary stores
+    ///
+    /// Aborts:
+    /// - Same abort codes as transfer_sponsored
+    public entry fun transfer_sponsored_fa(
+        user: &signer,
+        fa_metadata: Object<Metadata>,
+        to: address,
+        amount: u64,
+        nonce: vector<u8>,
+        valid_until: u64,
+        chain_id: u8,
+    ) acquires NonceRegistry {
+        let from = signer::address_of(user);
+
+        // Validate expiration
+        assert!(timestamp::now_seconds() <= valid_until, E_AUTHORIZATION_EXPIRED);
+
+        // Validate chain ID
+        assert!(chain_id == CHAIN_ID_TESTNET || chain_id == CHAIN_ID_MAINNET || chain_id == CHAIN_ID_DEVNET, E_INVALID_CHAIN_ID);
+
+        // Validate inputs
+        assert!(amount > 0, E_INVALID_AMOUNT);
+        assert!(to != @0x0, E_INVALID_RECIPIENT_ADDRESS);
+        assert!(exists<NonceRegistry>(from), E_REGISTRY_NOT_INITIALIZED);
+
+        // Check balance before proceeding
+        let balance = primary_fungible_store::balance(from, fa_metadata);
+        assert!(balance >= amount, E_INSUFFICIENT_BALANCE);
+
+        // Check nonce hasn't been used
+        let registry = borrow_global_mut<NonceRegistry>(from);
+        assert!(
+            !smart_table::contains(&registry.used_nonces, nonce),
+            E_NONCE_ALREADY_USED
+        );
+
+        // Mark nonce as used
+        smart_table::add(&mut registry.used_nonces, nonce, true);
+
+        // Execute transfer using primary fungible store
+        primary_fungible_store::transfer(user, fa_metadata, to, amount);
+
+        // Emit event
+        event::emit(TransferFAEvent {
+            from,
+            to,
+            amount,
+            fa_metadata: object::object_address(&fa_metadata),
+            nonce,
+            facilitator: @0x0,
+            timestamp: timestamp::now_seconds(),
+        });
+    }
+
+    /// Transfer Fungible Asset to multiple recipients using fee payer (sponsored transaction)
+    ///
+    /// This function splits FA transfers among multiple recipients. Works with any
+    /// Fungible Asset that uses primary stores.
+    ///
+    /// @param user - The user account (signer) who owns and authorizes the transfer
+    /// @param fa_metadata - The metadata object of the Fungible Asset
+    /// @param recipients - Vector of recipient addresses
+    /// @param amounts - Vector of amounts to transfer
+    /// @param nonce - Unique identifier to prevent replay attacks
+    /// @param valid_until - Unix timestamp when authorization expires
+    /// @param chain_id - Chain ID (1=mainnet, 2=testnet, 3=devnet) for replay protection
+    ///
+    /// Security features:
+    /// - All standard validations from transfer_sponsored_split
+    /// - Works with any FA using primary stores
+    ///
+    /// Aborts:
+    /// - Same abort codes as transfer_sponsored_split
+    public entry fun transfer_sponsored_fa_split(
+        user: &signer,
+        fa_metadata: Object<Metadata>,
+        recipients: vector<address>,
+        amounts: vector<u64>,
+        nonce: vector<u8>,
+        valid_until: u64,
+        chain_id: u8,
+    ) acquires NonceRegistry {
+        let from = signer::address_of(user);
+
+        // Validate expiration
+        assert!(timestamp::now_seconds() <= valid_until, E_AUTHORIZATION_EXPIRED);
+
+        // Validate chain ID
+        assert!(chain_id == CHAIN_ID_TESTNET || chain_id == CHAIN_ID_MAINNET || chain_id == CHAIN_ID_DEVNET, E_INVALID_CHAIN_ID);
+
+        // Validate recipients and amounts
+        let num_recipients = vector::length(&recipients);
+        assert!(num_recipients > 0, E_ZERO_RECIPIENTS);
+        assert!(num_recipients <= MAX_RECIPIENTS, E_TOO_MANY_RECIPIENTS);
+        assert!(num_recipients == vector::length(&amounts), E_AMOUNTS_MISMATCH);
+        assert!(exists<NonceRegistry>(from), E_REGISTRY_NOT_INITIALIZED);
+
+        // Validate all amounts are positive and no recipient is zero address
+        // Calculate total with overflow protection (use u128)
+        let i = 0;
+        let total_amount_u128 = 0u128;
+        while (i < num_recipients) {
+            let recipient = *vector::borrow(&recipients, i);
+            let amt = *vector::borrow(&amounts, i);
+
+            // Validate amount and recipient
+            assert!(amt > 0, E_INVALID_AMOUNT);
+            assert!(recipient != @0x0, E_INVALID_RECIPIENT_ADDRESS);
+
+            // Add to total using u128 to detect overflow
+            total_amount_u128 = total_amount_u128 + (amt as u128);
+
+            i = i + 1;
+        };
+
+        // Ensure total doesn't overflow u64
+        assert!(total_amount_u128 <= MAX_U64, E_TOTAL_AMOUNT_OVERFLOW);
+        let total_amount = (total_amount_u128 as u64);
+
+        // Check for duplicate recipients
+        let j = 0;
+        while (j < num_recipients) {
+            let recipient_j = *vector::borrow(&recipients, j);
+            let k = j + 1;
+            while (k < num_recipients) {
+                let recipient_k = *vector::borrow(&recipients, k);
+                assert!(recipient_j != recipient_k, E_DUPLICATE_RECIPIENT);
+                k = k + 1;
+            };
+            j = j + 1;
+        };
+
+        // Check balance before proceeding
+        let balance = primary_fungible_store::balance(from, fa_metadata);
+        assert!(balance >= total_amount, E_INSUFFICIENT_BALANCE);
+
+        // Check nonce hasn't been used
+        let registry = borrow_global_mut<NonceRegistry>(from);
+        assert!(
+            !smart_table::contains(&registry.used_nonces, nonce),
+            E_NONCE_ALREADY_USED
+        );
+
+        // Mark nonce as used
+        smart_table::add(&mut registry.used_nonces, nonce, true);
+
+        // Execute transfers to all recipients
+        let m = 0;
+        while (m < num_recipients) {
+            let recipient = *vector::borrow(&recipients, m);
+            let amount = *vector::borrow(&amounts, m);
+            primary_fungible_store::transfer(user, fa_metadata, recipient, amount);
+            m = m + 1;
+        };
+
+        // Emit event
+        event::emit(TransferFASplitEvent {
+            from,
+            recipients,
+            amounts,
+            total_amount,
+            fa_metadata: object::object_address(&fa_metadata),
+            nonce,
+            facilitator: @0x0,
+            timestamp: timestamp::now_seconds(),
+        });
     }
 
     // ============================================================

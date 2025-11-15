@@ -1,7 +1,7 @@
 {
   "name": "x402a-contract",
-  "version": "0.1.0",
-  "description": "Aptos Move smart contract for x402 payment protocol",
+  "version": "0.2.0",
+  "description": "Aptos Move smart contract for x402 payment protocol - Supports APT Coin and Fungible Assets",
   "private": true,
   "type": "module",
   "scripts": {

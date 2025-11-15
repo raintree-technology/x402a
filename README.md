@@ -1,10 +1,10 @@
 # x402a — HTTP-402 Payments for Aptos
 
-**EXPERIMENTAL - Version 0.1.0**
+**EXPERIMENTAL - Version 0.2.0**
 
 **Warning**: This is an experimental release. Not recommended for production use with real funds. Use testnet only.
 
-Secure payment-required resources on Aptos using fee payer transactions. User's funds transferred, facilitator pays gas.
+Secure payment-required resources on Aptos using fee payer transactions. Supports both **APT Coin** and **Fungible Assets (FA)**. User's funds transferred, facilitator pays gas.
 
 ## What is x402a?
 
@@ -215,8 +215,10 @@ x402a/
 
 ### Entry Functions
 
+#### APT Coin Functions
+
 ```move
-// Single recipient payment
+// Single recipient APT payment
 public entry fun transfer_sponsored(
     user: &signer,          // User signs
     to: address,
@@ -226,7 +228,7 @@ public entry fun transfer_sponsored(
     chain_id: u8,           // 1=mainnet, 2=testnet, 3=devnet
 )
 
-// Multi-recipient (up to 10)
+// Multi-recipient APT (up to 10)
 public entry fun transfer_sponsored_split(
     user: &signer,
     recipients: vector<address>,
@@ -235,7 +237,37 @@ public entry fun transfer_sponsored_split(
     valid_until: u64,
     chain_id: u8,
 )
+```
 
+#### Fungible Asset (FA) Functions
+
+```move
+// Single recipient FA payment
+public entry fun transfer_sponsored_fa(
+    user: &signer,
+    fa_metadata: Object<Metadata>,  // FA metadata object
+    to: address,
+    amount: u64,
+    nonce: vector<u8>,
+    valid_until: u64,
+    chain_id: u8,
+)
+
+// Multi-recipient FA (up to 10)
+public entry fun transfer_sponsored_fa_split(
+    user: &signer,
+    fa_metadata: Object<Metadata>,
+    recipients: vector<address>,
+    amounts: vector<u64>,
+    nonce: vector<u8>,
+    valid_until: u64,
+    chain_id: u8,
+)
+```
+
+#### Setup
+
+```move
 // One-time setup per account
 public entry fun initialize_registry(account: &signer)
 ```
@@ -353,12 +385,18 @@ await wallet.signAndSubmitTransaction({
 
 ##  Use Cases
 
-- **Pay-per-article** — Unlock premium content
-- **API metering** — Pay per API call
+### With APT Coin
+- **Pay-per-article** — Unlock premium content with APT
+- **API metering** — Pay per API call in APT
 - **Streaming payments** — Micropayments per second
-- **Tips & donations** — Easy tipping for creators
-- **Premium features** — Unlock app functionality
-- **Data access** — Pay for database queries
+
+### With Fungible Assets (FA)
+- **Stablecoin payments** — Pay with USDC, USDT, or other stablecoins
+- **Custom tokens** — Accept payments in your project's token
+- **RWA payments** — Real-world asset tokenized payments
+- **Multi-asset support** — Accept multiple FA types
+- **Tips & donations** — Easy tipping in any FA
+- **Premium features** — Unlock app functionality with custom tokens
 
 ---
 
@@ -373,12 +411,17 @@ await wallet.signAndSubmitTransaction({
 
 ##  Roadmap
 
-### v0.2.0 (Planned)
-- Fungible Assets support
-- React hooks (`useX402Payment`)
-- TypeScript unit tests
+### v0.2.0 ✅ (Current Release)
+- ✅ Fungible Assets (FA) support
+- ✅ Single and split FA payments
+- ✅ Backward compatible with Coin
 
 ### v0.3.0 (Planned)
+- React hooks (`useX402Payment`)
+- TypeScript unit tests
+- FA Examples
+
+### v0.4.0 (Planned)
 - Subscription support (recurring payments)
 - Batch payments
 - Price oracle integration
@@ -406,6 +449,14 @@ MIT
 
 ---
 
-**Version**: 0.1.0 (Experimental)
+**Version**: 0.2.0 (Experimental)
 **Status**: Experimental - Testnet Only
 **Last Updated**: 2025-11-14
+
+## ✨ What's New in v0.2.0
+
+- 🎉 **Fungible Asset Support**: Transfer any FA using `transfer_sponsored_fa` and `transfer_sponsored_fa_split`
+- 🔄 **Backward Compatible**: Existing APT Coin functions work unchanged
+- 🏪 **Primary Store Integration**: Seamless FA transfers using Aptos primary stores
+- 📊 **New Events**: Dedicated `TransferFAEvent` and `TransferFASplitEvent` for FA tracking
+- 🔒 **Same Security**: All security features apply to both Coin and FA transfers
