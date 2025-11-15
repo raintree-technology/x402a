@@ -17,6 +17,16 @@ x402a brings the HTTP 402 Payment Required model to Aptos blockchain. Like [x402
 
 ---
 
+##  Demo
+
+### Payment Flow Demo
+![Payment Demo](./public/demo.png)
+
+### Successful Payment
+![Success](./public/success.png)
+
+---
+
 ##  Quick Start
 
 ```bash
