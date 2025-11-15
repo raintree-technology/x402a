@@ -4,7 +4,7 @@ version = "1.0.0"
 authors = []
 
 [addresses]
-x402a = "0xc7e1ae48502e9d236288827ade5ac916ccd7454f2136856cdf002820494c7f36"
+x402a = "0x966eb1d2d3ed1e199f7d92335b5bb40f7a79dbbfb142ed951035bf78ba1b9744"
 
 [dev-addresses]
 
