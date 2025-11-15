@@ -32,13 +32,13 @@ jobs:
         run: bun run build
 
       - name: Install Playwright Browsers
-        run: bunx playwright install --with-deps chromium
+        run: bunx playwright install --with-deps
 
       - name: Run E2E tests
         run: bun run test:e2e
         env:
           CI: true
-          BASE_URL: http://localhost:3000
+          BASE_URL: http://localhost:3001
 
       - name: Upload Playwright Report
         uses: actions/upload-artifact@v3

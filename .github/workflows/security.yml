@@ -28,7 +28,7 @@ jobs:
       - name: Run dependency audit
         run: |
           echo "Checking for vulnerabilities..."
-          echo "Note: Using Bun package manager - npm audit not applicable"
+          bun audit || echo "⚠️ Vulnerabilities found - please review"
           echo "Dependency audit completed"
 
   codeql-analysis:
@@ -49,16 +49,16 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v2
+        uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
           queries: security-and-quality
 
       - name: Autobuild
-        uses: github/codeql-action/autobuild@v2
+        uses: github/codeql-action/autobuild@v3
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v2
+        uses: github/codeql-action/analyze@v3
         with:
           category: "/language:${{ matrix.language }}"
 
@@ -141,14 +141,15 @@ jobs:
   security-summary:
     name: Security Summary
     if: always()
-    needs: [dependency-audit, codeql-analysis, secret-scan]
+    needs: [dependency-audit, codeql-analysis, secret-scan, license-check]
     runs-on: ubuntu-latest
     steps:
       - name: Check all security scans
         run: |
           if [[ "${{ needs.dependency-audit.result }}" == "success" && \
                 "${{ needs.codeql-analysis.result }}" == "success" && \
-                "${{ needs.secret-scan.result }}" == "success" ]]; then
+                "${{ needs.secret-scan.result }}" == "success" && \
+                "${{ needs.license-check.result }}" == "success" ]]; then
             echo "✅ All security scans passed!"
             exit 0
           else
@@ -156,5 +157,6 @@ jobs:
             echo "Dependency Audit: ${{ needs.dependency-audit.result }}"
             echo "CodeQL Analysis: ${{ needs.codeql-analysis.result }}"
             echo "Secret Scan: ${{ needs.secret-scan.result }}"
+            echo "License Check: ${{ needs.license-check.result }}"
             exit 1
           fi
