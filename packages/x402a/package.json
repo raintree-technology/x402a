@@ -1,6 +1,6 @@
 {
   "name": "x402a",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Experimental x402 payment protocol implementation for Aptos blockchain - Supports APT Coin and Fungible Assets - client, server, and React in one package",
   "type": "module",
   "main": "./dist/index.js",

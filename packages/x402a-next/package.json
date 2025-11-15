@@ -1,6 +1,6 @@
 {
   "name": "x402a-next",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Next.js middleware and utilities for x402a payment protocol - Supports APT Coin and Fungible Assets",
   "type": "module",
   "main": "./dist/index.js",
@@ -63,7 +63,7 @@
   "dependencies": {
     "pino": "^10.1.0",
     "pino-pretty": "^13.1.2",
-    "x402a": "^0.2.0"
+    "x402a": "^0.2.1"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

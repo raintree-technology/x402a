@@ -60,9 +60,9 @@
   },
   "homepage": "https://github.com/raintree-technology/x402a/tree/main/packages/x402s-next#readme",
   "dependencies": {
-    "x402s": "workspace:*",
-    "x402a": "workspace:*",
-    "x402a-next": "workspace:*",
+    "x402s": "^0.1.0",
+    "x402a": "^0.2.1",
+    "x402a-next": "^0.2.1",
     "pino": "^10.1.0",
     "zod": "^3.22.4"
   },

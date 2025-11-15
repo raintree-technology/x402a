@@ -68,7 +68,7 @@
   },
   "homepage": "https://github.com/raintree-technology/x402a/tree/main/packages/x402s#readme",
   "dependencies": {
-    "x402a": "workspace:*",
+    "x402a": "^0.2.1",
     "@aptos-labs/ts-sdk": "^1.30.0",
     "pino": "^10.1.0",
     "zod": "^3.22.4"
