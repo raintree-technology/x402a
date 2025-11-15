@@ -10,6 +10,8 @@
     "packages/x402a-next",
     "packages/x402a-contract",
     "packages/x402a-tools",
+    "packages/x402s",
+    "packages/x402s-next",
     "examples/*"
   ],
   "repository": {
@@ -47,7 +49,9 @@
     "changeset:publish": "changeset publish",
     "publish:x402a": "cd packages/x402a && npm publish --access public",
     "publish:x402a-next": "cd packages/x402a-next && npm publish --access public",
-    "publish:all": "bun run publish:x402a && bun run publish:x402a-next",
+    "publish:x402s": "cd packages/x402s && npm publish --access public",
+    "publish:x402s-next": "cd packages/x402s-next && npm publish --access public",
+    "publish:all": "bun run publish:x402a && bun run publish:x402a-next && bun run publish:x402s && bun run publish:x402s-next",
     "prepare": "turbo run build --filter=!./examples/*",
     "postinstall": "bun run prepare"
   },
@@ -59,5 +63,8 @@
     "turbo": "^2.3.0",
     "typescript": "^5.3.3",
     "vitest": "^1.0.4"
+  },
+  "dependencies": {
+    "@shelby-protocol/sdk": "^0.0.5"
   }
 }
