@@ -1,8 +1,8 @@
 "use client";
 
 import { useWallet } from "@aptos-labs/wallet-adapter-react";
-import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
 
 interface Transaction {
   txHash: string;
@@ -21,15 +21,7 @@ export default function TransactionHistoryPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (connected && account) {
-      fetchTransactions();
-    } else {
-      setTransactions([]);
-    }
-  }, [connected, account]);
-
-  const fetchTransactions = async () => {
+  const fetchTransactions = useCallback(async () => {
     if (!account) return;
 
     setLoading(true);
@@ -49,7 +41,15 @@ export default function TransactionHistoryPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [account]);
+
+  useEffect(() => {
+    if (connected && account) {
+      fetchTransactions();
+    } else {
+      setTransactions([]);
+    }
+  }, [connected, account, fetchTransactions]);
 
   const formatAmount = (amount: string | string[]): string => {
     if (Array.isArray(amount)) {
@@ -80,7 +80,12 @@ export default function TransactionHistoryPage() {
             className="inline-flex items-center gap-2 text-emerald-400 hover:text-emerald-300 transition-colors mb-4"
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M10 19l-7-7m0 0l7-7m-7 7h18"
+              />
             </svg>
             Back to Home
           </Link>
@@ -104,7 +109,9 @@ export default function TransactionHistoryPage() {
                 d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            <p className="text-amber-400 font-medium">Connect your wallet to view transaction history</p>
+            <p className="text-amber-400 font-medium">
+              Connect your wallet to view transaction history
+            </p>
           </div>
         )}
 
@@ -142,7 +149,9 @@ export default function TransactionHistoryPage() {
                   />
                 </svg>
                 <p className="text-stone-400 font-medium">No transactions yet</p>
-                <p className="text-stone-500 text-sm mt-2">Make your first x402a payment to see it here</p>
+                <p className="text-stone-500 text-sm mt-2">
+                  Make your first x402a payment to see it here
+                </p>
               </div>
             ) : (
               <>
@@ -175,7 +184,9 @@ export default function TransactionHistoryPage() {
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-3">
                           {/* Status Icon */}
-                          <div className={`p-2 rounded-lg ${tx.success ? "bg-emerald-900/30" : "bg-red-900/30"}`}>
+                          <div
+                            className={`p-2 rounded-lg ${tx.success ? "bg-emerald-900/30" : "bg-red-900/30"}`}
+                          >
                             {tx.success ? (
                               <svg
                                 className="w-5 h-5 text-emerald-400"
@@ -183,7 +194,12 @@ export default function TransactionHistoryPage() {
                                 viewBox="0 0 24 24"
                                 stroke="currentColor"
                               >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M5 13l4 4L19 7"
+                                />
                               </svg>
                             ) : (
                               <svg
@@ -192,7 +208,12 @@ export default function TransactionHistoryPage() {
                                 viewBox="0 0 24 24"
                                 stroke="currentColor"
                               >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M6 18L18 6M6 6l12 12"
+                                />
                               </svg>
                             )}
                           </div>
@@ -200,7 +221,9 @@ export default function TransactionHistoryPage() {
                           {/* Transaction Info */}
                           <div>
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="text-stone-300 font-medium">{formatAmount(tx.amount)}</span>
+                              <span className="text-stone-300 font-medium">
+                                {formatAmount(tx.amount)}
+                              </span>
                               <span
                                 className={`text-xs px-2 py-0.5 rounded ${
                                   tx.type === "split"
@@ -211,11 +234,15 @@ export default function TransactionHistoryPage() {
                                 {tx.type === "split" ? "Split Payment" : "Single Payment"}
                               </span>
                               {!tx.success && (
-                                <span className="text-xs px-2 py-0.5 rounded bg-red-900/30 text-red-400">Failed</span>
+                                <span className="text-xs px-2 py-0.5 rounded bg-red-900/30 text-red-400">
+                                  Failed
+                                </span>
                               )}
                             </div>
                             <p className="text-stone-400 text-sm">To: {formatAddress(tx.to)}</p>
-                            <p className="text-stone-500 text-xs mt-1">{formatTimestamp(tx.timestamp)}</p>
+                            <p className="text-stone-500 text-xs mt-1">
+                              {formatTimestamp(tx.timestamp)}
+                            </p>
                           </div>
                         </div>
 
@@ -227,7 +254,12 @@ export default function TransactionHistoryPage() {
                           className="text-emerald-400 hover:text-emerald-300 text-sm flex items-center gap-1"
                         >
                           <span>View</span>
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
                             <path
                               strokeLinecap="round"
                               strokeLinejoin="round"
@@ -276,8 +308,8 @@ export default function TransactionHistoryPage() {
         {connected && transactions.length > 0 && (
           <div className="mt-8 bg-blue-950/20 border border-blue-800/30 p-4 rounded-lg">
             <p className="text-blue-400 text-sm">
-              <span className="font-medium">On-chain verification:</span> All transactions are recorded on the Aptos
-              blockchain and can be independently verified on the explorer.
+              <span className="font-medium">On-chain verification:</span> All transactions are
+              recorded on the Aptos blockchain and can be independently verified on the explorer.
             </p>
           </div>
         )}

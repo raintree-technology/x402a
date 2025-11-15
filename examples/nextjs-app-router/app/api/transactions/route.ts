@@ -7,8 +7,8 @@
  * 3. Returns formatted transaction list
  */
 
-import { type NextRequest, NextResponse } from "next/server";
 import { Aptos, AptosConfig, Network } from "@aptos-labs/ts-sdk";
+import { type NextRequest, NextResponse } from "next/server";
 
 interface Transaction {
   txHash: string;
@@ -27,23 +27,20 @@ export async function GET(request: NextRequest) {
     const address = searchParams.get("address");
 
     if (!address) {
-      return NextResponse.json(
-        { error: "Address parameter required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Address parameter required" }, { status: 400 });
     }
 
     // Initialize Aptos client
-    const network = (process.env.NEXT_PUBLIC_APTOS_NETWORK || "testnet") as "testnet" | "mainnet" | "devnet";
+    const network = (process.env.NEXT_PUBLIC_APTOS_NETWORK || "testnet") as
+      | "testnet"
+      | "mainnet"
+      | "devnet";
     const aptosConfig = new AptosConfig({ network: Network.TESTNET });
     const aptos = new Aptos(aptosConfig);
 
     const contractAddress = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
     if (!contractAddress) {
-      return NextResponse.json(
-        { error: "Contract address not configured" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Contract address not configured" }, { status: 500 });
     }
 
     // Fetch account transactions
@@ -111,7 +108,6 @@ export async function GET(request: NextRequest) {
       transactions: x402aTransactions,
       count: x402aTransactions.length,
     });
-
   } catch (error: any) {
     console.error("[Transactions API] Error fetching transactions:", error);
 
