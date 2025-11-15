@@ -10,6 +10,7 @@
   "ignore": [
     "nextjs-app-router-example",
     "@x402a/config",
+    "@x402a/tools",
     "x402a-contract"
   ]
 }
