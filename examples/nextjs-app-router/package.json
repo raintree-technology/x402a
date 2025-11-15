@@ -12,8 +12,11 @@
     "format": "biome format ."
   },
   "dependencies": {
+    "@aptos-labs/ts-sdk": "^1.30.0",
+    "@aptos-labs/wallet-adapter-react": "^3.7.2",
     "next": "^16.0.3",
     "next-themes": "^0.4.6",
+    "petra-plugin-wallet-adapter": "^0.4.5",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "x402a": "workspace:*",
