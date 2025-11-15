@@ -1,0 +1,1004 @@
+# x402 Facilitators and SDKs
+
+## Table of Contents
+1. Facilitators Overview
+2. Coinbase CDP Facilitator
+3. thirdweb Facilitator
+4. Corbits/Faremeter
+5. PayAI Network
+6. x402-rs (Rust SDK)
+7. Official SDKs (TypeScript, Python)
+8. Community SDKs
+
+---
+
+## 1. Facilitators Overview
+
+### What is a Facilitator?
+
+A facilitator is a service managing verification and submission of x402 payments. Facilitators handle:
+- Payment signature verification
+- Payment requirement validation
+- On-chain transaction submission
+- Settlement confirmation
+- Fee management (optional)
+
+### Key Characteristics
+
+**Stateless Operation:**
+Facilitators operate as stateless verification and execution layers without maintaining user state or funds.
+
+**Core Functions:**
+1. **Payment Verification** - Confirming signed payloads match declared requirements
+2. **Payment Settlement** - Submitting validated transactions to blockchain networks
+
+**Critical Security Property:**
+"The Facilitator never holds user funds" - operates solely as an intermediary for payment processing.
+
+### Why Use a Facilitator?
+
+- Eliminates need for servers to maintain blockchain connections
+- Removes complex cryptographic logic from applications
+- Provides standardized payment verification
+- Handles multi-chain complexity
+- Offers reliability and uptime guarantees
+
+---
+
+## 2. Coinbase CDP Facilitator
+
+### Overview
+
+Coinbase Developer Platform offers a hosted facilitator providing "fee-free USDC payments on the Base network" plus streamlined seller onboarding.
+
+**Official Facilitator URL:**
+```
+https://x402.org/facilitator
+```
+
+### Supported Networks
+
+**Mainnet:**
+- Base
+- Ethereum
+- Polygon
+- Arbitrum
+- Optimism
+- And other EVM chains
+
+**Testnet:**
+- Base Sepolia
+- Ethereum Sepolia
+
+Documentation: https://docs.cdp.coinbase.com/get-started/supported-networks#x402
+
+### Key Features
+
+**Zero Fees:**
+- No protocol fees for merchants
+- No fees for customers
+- Pure network gas costs only
+
+**Fast Settlement:**
+- ~2 second confirmation on Base
+- Near-instant finality
+
+**Enterprise Support:**
+- SLA guarantees
+- 24/7 monitoring
+- Developer support via Discord
+
+### Integration
+
+**For Testnet:**
+```javascript
+const facilitator = {
+  url: "https://x402.org/facilitator"
+};
+```
+
+**For Mainnet:**
+```javascript
+import { createFacilitator } from '@coinbase/x402';
+
+const facilitator = createFacilitator({
+  apiKey: process.env.CDP_API_KEY,
+  apiSecret: process.env.CDP_API_SECRET
+});
+```
+
+### Requirements
+
+**Testnet:**
+- No API key required
+- Open access for development
+
+**Mainnet:**
+- CDP account required
+- API credentials from cdp.coinbase.com
+- Approved application
+
+### Resources
+
+- Developer Docs: https://docs.cdp.coinbase.com/x402/welcome
+- Quickstart Guides: https://docs.cdp.coinbase.com/x402/quickstart-for-sellers
+- Support: Discord at discord.com/invite/cdp
+
+---
+
+## 3. thirdweb Facilitator
+
+### Overview
+
+The thirdweb facilitator supports "payments on 170+ EVM chains" through account abstraction services and uses server wallets with EIP-7702 for gasless transactions.
+
+**Website:** https://portal.thirdweb.com/payments/x402/facilitator
+
+### Key Features
+
+**Extensive Network Support:**
+- 170+ EVM chains
+- Account abstraction integration
+- Gasless transactions via EIP-7702
+- Server wallet management
+
+**Compatible Payment Tokens:**
+1. **ERC-2612 permit** - Standard ERC-20 tokens
+2. **ERC-3009 transferWithAuthorization** - USDC across all chains
+
+### Implementation
+
+#### Creating a Facilitator
+
+```typescript
+import { facilitator } from "thirdweb/x402";
+import { createThirdwebClient } from "thirdweb";
+
+const client = createThirdwebClient({
+  secretKey: "your-secret-key",
+});
+
+const thirdwebFacilitator = facilitator({
+  client: client,
+  serverWalletAddress: "0x1234567890123456789012345678901234567890",
+});
+```
+
+#### Configuration Options
+
+**Required:**
+- `client` (ThirdwebClient): Client with secret key
+- `serverWalletAddress` (string): Server wallet executing transactions
+
+**Optional:**
+- `waitUntil` (string): Settlement confirmation behavior
+  - `"simulated"` - Fastest, simulation only
+  - `"submitted"` - Transaction sent to network
+  - `"confirmed"` - Full on-chain confirmation (default)
+
+### Integration Patterns
+
+**Direct Implementation:**
+```typescript
+import { settlePayment } from "thirdweb/x402";
+
+await settlePayment({
+  facilitator: thirdwebFacilitator,
+  payment: paymentProof,
+  requirements: paymentRequirements
+});
+```
+
+**Middleware Integration:**
+Works with third-party x402 middleware:
+- `x402-hono`
+- `x402-next`
+- `x402-express`
+
+### Supported Payment Methods
+
+**Query Supported Methods:**
+```typescript
+// All supported methods
+const allSupported = await thirdwebFacilitator.supported();
+
+// Chain-specific support
+const chainSpecific = await thirdwebFacilitator.supported({
+  chainId: 8453  // Base
+});
+```
+
+### API Authentication
+
+All HTTP API endpoints require authentication:
+```
+x-secret-key: your_project_secret_key
+```
+
+### Settlement Modes
+
+**Simulated Mode:**
+- Fastest response
+- Local simulation only
+- No on-chain transaction
+- Development/testing use
+
+**Submitted Mode:**
+- Transaction sent to mempool
+- No wait for confirmation
+- Faster response
+- Some risk of revert
+
+**Confirmed Mode (Recommended):**
+- Wait for on-chain confirmation
+- Highest reliability
+- Production recommended
+- Slightly slower
+
+---
+
+## 4. Corbits/Faremeter
+
+### Overview
+
+Corbits provides Solana-first facilitation with the Faremeter product, offering sub-second settlement times across 20+ networks.
+
+**Facilitator Pattern:**
+```
+https://facilitator.corbits.<network_string>
+```
+
+**Documentation:** https://docs.corbits.dev/about-corbits/networks
+
+### Supported Networks (20+)
+
+#### Ultra-Fast Settlement (< 1 second)
+
+**Solana Networks:**
+- Solana Mainnet: **100ms settlement**
+- Solana Devnet: **100ms settlement**
+
+**EVM Networks:**
+- Base: 2s
+- Base Sepolia: 2s
+- HyperEVM: 200ms
+- Unichain: 250ms
+- Apechain: 250ms
+- Abstract Chain: 390ms
+
+#### Fast Settlement (1-5 seconds)
+
+- SUI: 400ms
+- SEI: 400ms
+- Aptos: 650ms
+- Monad: 1s
+- MegaETH: 1.7s
+- BNB Chain: 1.9s
+- Arbitrum: 2s
+- Avalanche: 2s
+- Tron: 3s
+- Polygon: 5s
+
+#### Standard Settlement
+
+- Ethereum: 12s
+- Bitcoin: 10 minutes
+
+### Key Features
+
+**Network Specialization:**
+- Solana-first approach
+- Optimized for micropayments
+- Sub-second confirmations
+- Low latency facilitator infrastructure
+
+**Developer Support:**
+- Custom EVM/SVM chain support
+- Direct contact for network additions
+- Extensive documentation
+
+### Important Considerations
+
+From documentation:
+"Blockchain settlement times may vary as networks undergo upgrades"
+
+**Recommendations:**
+- Consider block finality for your use case
+- Account for confirmation time requirements
+- Test with expected transaction volumes
+- Monitor network conditions
+
+### SDK Integration
+
+**Typescript (Faremeter):**
+```
+npm install @faremeter/sdk
+```
+
+**GitHub:** https://github.com/faremeter/faremeter
+
+Includes:
+- TypeScript facilitator implementation
+- Express/Hono middleware
+- Client libraries
+- Example applications
+
+---
+
+## 5. PayAI Network
+
+### Overview
+
+PayAI provides x402 facilitation with built-in transaction fee handling and multi-network support.
+
+**Documentation:** https://docs.payai.network/x402/quickstart
+
+### Features
+
+**Core Capabilities:**
+- Facilitator services for x402
+- Transaction fee management
+- Multiple network support
+- Developer-friendly APIs
+
+### Supported Networks
+
+Per documentation at facilitator quickstart page:
+- Base
+- Ethereum
+- Additional EVM chains
+
+(Note: Full network list may require accessing docs directly due to SSL error in fetch)
+
+### Integration
+
+**Basic Setup:**
+```javascript
+const facilitator = {
+  url: "https://facilitator.payai.network",
+  // Additional config from PayAI docs
+};
+```
+
+### Use Cases
+
+- AI agent payments
+- Autonomous service access
+- Micropayment infrastructure
+- Pay-per-use APIs
+
+### Resources
+
+- Docs: https://docs.payai.network/x402/quickstart
+- GitHub repositories (check PayAI organization)
+
+---
+
+## 6. x402-rs (Rust SDK)
+
+### Overview
+
+x402-rs is a comprehensive Rust implementation providing production-grade tools for payment verification, settlement, and integration.
+
+**GitHub:** https://github.com/x402-rs/x402-rs
+
+### Core Components
+
+#### Main Crate (x402-rs)
+
+**Features:**
+- Protocol types and facilitator traits
+- On-chain payment verification logic
+- On-chain settlement logic
+- Production HTTP server for processing x402 payments
+
+**Responsibilities:**
+"Servers declare payment requirements for specific routes. Clients send cryptographically signed payment payloads. Facilitators verify and settle payments on-chain."
+
+#### Ecosystem Libraries
+
+**x402-axum:**
+- Middleware for Axum web framework
+- Route protection with payment requirements
+- Seamless integration with existing Axum apps
+
+**x402-reqwest:**
+- Client wrapper for reqwest
+- Transparent payment handling in HTTP requests
+- Automatic 402 response handling
+
+**Examples:**
+- Server implementation examples
+- Client usage demonstrations
+- Integration patterns
+
+### Facilitator Architecture
+
+**Stateless Design:**
+The facilitator serves as a stateless verification and execution layer handling:
+1. **Payment Verification**: Confirming signed payloads match requirements
+2. **Payment Settlement**: Submitting validated transactions to blockchains
+
+**Security Property:**
+"The Facilitator never holds user funds" - operates solely as intermediary.
+
+### Network Support
+
+Configured through environment variables:
+
+**EVM Networks:**
+- Base (Mainnet and Sepolia)
+- Avalanche
+- Polygon
+- XDC
+- Sei
+- Other EVM chains with RPC endpoint
+
+**Non-EVM Networks:**
+- Solana Mainnet
+- Solana Devnet
+
+**Configuration:**
+Network availability depends on provided RPC endpoints. Unsupported networks are unavailable even if general infrastructure exists.
+
+### Development & Deployment
+
+#### Build Requirements
+
+- Rust 1.80 or higher
+- Standard cargo toolchain
+- OpenSSL development libraries
+
+#### Deployment Options
+
+**1. Docker Containers:**
+```bash
+docker pull ghcr.io/x402-rs/x402-rs:latest
+docker run -p 8080:8080 ghcr.io/x402-rs/x402-rs
+```
+
+Available at:
+- Docker Hub
+- GitHub Container Registry (GHCR)
+
+**2. Local Binary:**
+```bash
+git clone https://github.com/x402-rs/x402-rs
+cd x402-rs
+cargo build --release
+./target/release/x402-facilitator
+```
+
+**3. Environment Configuration:**
+```bash
+# Network RPC endpoints
+BASE_RPC_URL=https://base-mainnet.infura.io/v3/YOUR_KEY
+SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+
+# Server config
+HOST=0.0.0.0
+PORT=8080
+
+# Observability
+OTEL_EXPORTER_OTLP_ENDPOINT=http://collector:4317
+```
+
+### Observability
+
+**OpenTelemetry Integration:**
+- Exports traces and metrics
+- Compatible with multiple backends
+- Production monitoring ready
+
+**Supported Tools:**
+- Prometheus (metrics)
+- Grafana (visualization)
+- Honeycomb (distributed tracing)
+- Jaeger (tracing)
+- DataDog (APM)
+
+**Configuration:**
+```rust
+use opentelemetry::global;
+
+let tracer = global::tracer("x402-facilitator");
+```
+
+### Project Status
+
+**Completed Milestones:**
+- ✅ Facilitator implementation
+- ✅ OpenTelemetry integration
+- ✅ Server middleware (Axum)
+- ✅ Client libraries (reqwest)
+- ✅ Solana support
+
+**Planned Features:**
+- Multiple token support
+- Micropayment batching
+- Enhanced fee models
+- Additional network support
+
+### Use Cases
+
+**1. Self-Hosted Facilitator:**
+Run your own facilitator for full control and customization.
+
+**2. High-Performance APIs:**
+Rust's performance ideal for high-throughput payment processing.
+
+**3. Multi-Chain Services:**
+Support both EVM and Solana from single facilitator.
+
+**4. Custom Integration:**
+Modify facilitator logic for specific business requirements.
+
+### Example: Axum Middleware
+
+```rust
+use axum::{Router, routing::get};
+use x402_axum::paymentMiddleware;
+
+let app = Router::new()
+    .route("/api/data", get(handler))
+    .layer(paymentMiddleware(
+        "0xYourWalletAddress",
+        vec![("/api/data", "$0.01", "base")],
+        FacilitatorConfig::default()
+    ));
+```
+
+### Example: Reqwest Client
+
+```rust
+use x402_reqwest::X402Client;
+
+let client = X402Client::new(wallet)?;
+let response = client
+    .get("https://api.example.com/data")
+    .send()
+    .await?;
+```
+
+---
+
+## 7. Official SDKs (TypeScript, Python)
+
+### TypeScript SDKs
+
+**Repository:** https://github.com/coinbase/x402/tree/main/typescript
+
+#### Available Packages
+
+**Core Library:**
+```bash
+npm install @coinbase/x402
+```
+
+**Framework Middleware:**
+```bash
+npm install @coinbase/x402-express    # Express
+npm install @coinbase/x402-next       # Next.js
+npm install @coinbase/x402-hono       # Hono
+```
+
+**Client Libraries:**
+```bash
+npm install x402-axios    # Axios interceptor
+npm install x402-fetch    # Fetch wrapper
+```
+
+#### Express Middleware Example
+
+```typescript
+import express from 'express';
+import { paymentMiddleware } from '@coinbase/x402-express';
+
+const app = express();
+
+app.use(paymentMiddleware(
+  '0xYourWalletAddress',
+  {
+    'GET /api/data': {
+      price: '$0.01',
+      network: 'base',
+      description: 'Get market data'
+    }
+  },
+  {
+    facilitator: {
+      url: 'https://x402.org/facilitator'
+    }
+  }
+));
+
+app.get('/api/data', (req, res) => {
+  res.json({ data: 'Protected content' });
+});
+```
+
+#### Next.js Middleware Example
+
+```typescript
+import { paymentMiddleware } from '@coinbase/x402-next';
+
+export const config = {
+  matcher: '/api/:path*'
+};
+
+export default paymentMiddleware(
+  '0xYourWalletAddress',
+  {
+    'GET /api/data': {
+      price: '$0.01',
+      network: 'base'
+    }
+  }
+);
+```
+
+#### Hono Middleware Example
+
+```typescript
+import { Hono } from 'hono';
+import { paymentMiddleware } from '@coinbase/x402-hono';
+
+const app = new Hono();
+
+app.use('*', paymentMiddleware(
+  '0xYourWalletAddress',
+  {
+    'GET /api/data': {
+      price: '$0.01',
+      network: 'base'
+    }
+  }
+));
+```
+
+#### Client: x402-axios
+
+```typescript
+import axios from 'axios';
+import { x402Interceptor } from 'x402-axios';
+import { privateKeyToAccount } from 'viem/accounts';
+
+const account = privateKeyToAccount('0xYourPrivateKey');
+
+const client = axios.create({
+  baseURL: 'https://api.example.com'
+});
+
+client.interceptors.request.use(
+  x402Interceptor({
+    wallet: account,
+    network: 'base'
+  })
+);
+
+// Automatically handles 402 responses
+const response = await client.get('/api/data');
+```
+
+#### Client: x402-fetch
+
+```typescript
+import { createX402Fetch } from 'x402-fetch';
+import { privateKeyToAccount } from 'viem/accounts';
+
+const account = privateKeyToAccount('0xYourPrivateKey');
+
+const fetch = createX402Fetch({
+  wallet: account,
+  network: 'base'
+});
+
+// Automatically handles 402 responses
+const response = await fetch('https://api.example.com/data');
+const data = await response.json();
+```
+
+### Python SDKs
+
+**Repository:** https://github.com/coinbase/x402 (Python packages)
+
+#### Available Packages
+
+**Framework Support:**
+```bash
+pip install x402-fastapi    # FastAPI
+pip install x402-flask      # Flask
+pip install x402            # Core + clients
+```
+
+#### FastAPI Middleware Example
+
+```python
+from fastapi import FastAPI
+from x402_fastapi import paymentMiddleware
+
+app = FastAPI()
+
+app.add_middleware(
+    paymentMiddleware,
+    wallet_address='0xYourWalletAddress',
+    routes={
+        'GET /api/data': {
+            'price': '$0.01',
+            'network': 'base',
+            'description': 'Get market data'
+        }
+    },
+    facilitator={'url': 'https://x402.org/facilitator'}
+)
+
+@app.get('/api/data')
+async def get_data():
+    return {'data': 'Protected content'}
+```
+
+#### Flask Middleware Example
+
+```python
+from flask import Flask
+from x402_flask import paymentMiddleware
+
+app = Flask(__name__)
+
+paymentMiddleware(
+    app,
+    wallet_address='0xYourWalletAddress',
+    routes={
+        'GET /api/data': {
+            'price': '$0.01',
+            'network': 'base'
+        }
+    }
+)
+
+@app.route('/api/data')
+def get_data():
+    return {'data': 'Protected content'}
+```
+
+#### Python Client Example
+
+```python
+from x402 import X402Client
+from eth_account import Account
+
+account = Account.from_key('your_private_key')
+
+client = X402Client(
+    wallet=account,
+    network='base'
+)
+
+# Automatically handles 402 responses
+response = client.get('https://api.example.com/data')
+data = response.json()
+```
+
+---
+
+## 8. Community SDKs
+
+### x402-Solana
+
+**GitHub:** https://github.com/8bitsats/x402-Solana
+
+Community-maintained Solana implementation of x402.
+
+### Pipegate (x402 + Payment Channels)
+
+**GitHub:** https://github.com/Dhruv-2003/pipegate
+
+Combines x402 with payment channels for enhanced scalability.
+
+### x402-dotnet
+
+**GitHub:** https://github.com/michielpost/x402-dotnet
+
+.NET/C# implementation for x402 protocol.
+
+### MCPay
+
+**GitHub:** https://github.com/microchipgnu/mcpay
+
+Build and monetize MCP servers with x402.
+
+**Features:**
+- SDK for MCP integration
+- Infrastructure tools
+- Complete examples
+- Payment handling for Claude Desktop tools
+
+### x402-mcp (Vercel)
+
+**GitHub:** https://github.com/ethanniser/x402-mcp
+
+Vercel's MCP integration package for x402.
+
+**Features:**
+- Simplified MCP server creation
+- Payment middleware
+- Claude Desktop integration
+- Example implementations
+
+### x402-rails (QuickNode)
+
+**GitHub:** https://github.com/quiknode-labs/x402-rails
+
+Ruby gem for Ruby on Rails applications.
+
+**Features:**
+- Blockchain micropayment integration
+- Rails-native middleware
+- ActiveRecord integration
+- Action Controller integration
+
+**Installation:**
+```ruby
+gem install x402-rails
+```
+
+### x402-payments (QuickNode)
+
+**GitHub:** https://github.com/quiknode-labs/x402-payments
+
+Ruby gem for generating signed payment headers.
+
+**Features:**
+- Payment header generation
+- Payment link creation
+- X402 protocol implementation
+- Pure Ruby implementation
+
+**Installation:**
+```ruby
+gem install x402-payments
+```
+
+### x402-analytics
+
+**NPM:** https://www.npmjs.com/package/x402-analytics
+
+Analytics wrapper for x402 payments.
+
+**Features:**
+- Payment monitoring
+- Transaction insights
+- Usage analytics
+- Performance tracking
+
+**Examples:** https://github.com/RemsLabs/x402-analytics-examples
+
+---
+
+## Comparison Matrix
+
+| Facilitator | Networks | Settlement Time | Special Features |
+|-------------|----------|-----------------|------------------|
+| Coinbase CDP | Base + EVM | ~2s | Zero fees, enterprise support |
+| thirdweb | 170+ EVM | Varies | Account abstraction, EIP-7702 |
+| Corbits | 20+ (Solana focus) | 100ms-10min | Ultra-fast Solana, sub-second settlement |
+| PayAI | Multiple EVM | Varies | Fee handling, AI agent focus |
+| x402-rs (Self-hosted) | EVM + Solana | Varies | Self-hosted, customizable |
+
+| SDK | Language | Frameworks | Client Support |
+|-----|----------|------------|----------------|
+| @coinbase/x402 | TypeScript | Express, Next.js, Hono | axios, fetch |
+| x402-python | Python | FastAPI, Flask | requests, httpx |
+| x402-rs | Rust | Axum | reqwest |
+| x402-rails | Ruby | Rails | Native |
+| x402-dotnet | C# | .NET | Native |
+
+---
+
+## Choosing a Facilitator
+
+### For Production Use
+
+**Coinbase CDP:**
+- Best for: Base mainnet applications
+- Pros: Zero fees, reliable, enterprise support
+- Cons: Requires CDP account for mainnet
+
+**thirdweb:**
+- Best for: Multi-chain applications
+- Pros: 170+ chains, account abstraction
+- Cons: Requires thirdweb account
+
+**Corbits:**
+- Best for: Solana applications, ultra-low latency
+- Pros: 100ms settlement on Solana
+- Cons: Fewer EVM chains than competitors
+
+### For Development
+
+**Coinbase Testnet Facilitator:**
+- URL: https://x402.org/facilitator
+- No account required
+- Base Sepolia support
+- Perfect for prototyping
+
+### For Self-Hosting
+
+**x402-rs:**
+- Full control over infrastructure
+- Custom business logic
+- Privacy-focused applications
+- High-performance requirements
+
+---
+
+## SDK Selection Guide
+
+### TypeScript/JavaScript Projects
+
+**Server-side:**
+- Express → `@coinbase/x402-express`
+- Next.js → `@coinbase/x402-next`
+- Hono → `@coinbase/x402-hono`
+
+**Client-side:**
+- Using Axios → `x402-axios`
+- Using Fetch → `x402-fetch`
+- MCP servers → `x402-mcp` or `mcpay`
+
+### Python Projects
+
+**Async frameworks:**
+- FastAPI → `x402-fastapi`
+
+**Sync frameworks:**
+- Flask → `x402-flask`
+
+**Client:**
+- `x402` core package
+
+### Rust Projects
+
+- Axum framework → `x402-axum`
+- Client requests → `x402-reqwest`
+- Custom facilitator → `x402-rs` main crate
+
+### Other Languages
+
+- Ruby/Rails → `x402-rails`, `x402-payments`
+- .NET/C# → `x402-dotnet`
+- Solana-specific → `x402-Solana`
+
+---
+
+## Getting Started Checklist
+
+### For Sellers
+
+1. ✅ Choose target blockchain network
+2. ✅ Select appropriate facilitator
+3. ✅ Pick SDK for your framework
+4. ✅ Set up receiving wallet
+5. ✅ Install dependencies
+6. ✅ Add payment middleware
+7. ✅ Test with testnet facilitator
+8. ✅ Deploy and monitor
+
+### For Buyers
+
+1. ✅ Install client SDK
+2. ✅ Set up wallet with USDC
+3. ✅ Configure wallet in client
+4. ✅ Test payment flow
+5. ✅ Implement error handling
+6. ✅ Monitor transaction status
+
+### For Facilitator Operators
+
+1. ✅ Deploy x402-rs or custom implementation
+2. ✅ Configure network RPC endpoints
+3. ✅ Set up observability
+4. ✅ Implement rate limiting
+5. ✅ Deploy monitoring
+6. ✅ Test payment verification
+7. ✅ Launch and scale

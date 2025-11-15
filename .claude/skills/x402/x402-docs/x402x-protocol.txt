@@ -1,0 +1,164 @@
+# x402x Protocol
+
+## Overview
+x402x (short for x402-exec) extends the original x402 payments protocol, and enables Gas-Free and Approval-Free smart contract interactions and DApps.
+
+## Official Links
+- Home: https://x402x.org/
+- Documentation: https://x402x.org/docs
+- Facilitator: https://x402x.org/facilitator
+- Ecosystem: https://x402x.org/ecosystem
+- Github: https://github.com/x402x
+
+## Key Features
+- Gas-Free smart contract interactions
+- Approval-Free transactions
+- Extended x402 payments protocol
+- Smart contract execution capabilities
+
+## Application Scenarios
+Explore common checkout workflows you can power with x402x hooks:
+
+### Hook Contract
+How Settlement Router contract calls your Hook.execute.
+
+### Split Payment
+Fan out payment funds to multiple recipients.
+
+### Pay & Mint
+Mint an NFT or token as part of checkout.
+
+### Rewards
+Distribute points, badges, or rebates.
+
+## Technical Implementation
+
+### Settlement Router Contract
+The core contract that handles settlement and execution:
+
+```solidity
+// settlement-router.sol
+
+function settleAndExecute(
+  address token,
+  address from,
+  uint256 value,
+  bytes32 nonce,
+  bytes calldata sig,
+  bytes32 salt,
+  address payTo,
+  uint256 fee,
+  address hook,
+  bytes calldata data
+) external {
+  // Transfer tokens with authorization (ERC-3009)
+  IERC3009(token).transferWithAuthorization(
+    from,
+    address(this),
+    value,
+    0,
+    type(uint256).max,
+    nonce,
+    sig
+  );
+
+  // Calculate amount after fee
+  uint256 amt = value - fee;
+
+  // Execute hook if provided
+  if (hook != address(0)) {
+    IERC20(token).forceApprove(hook, amt);
+    ISettlementHook(hook).execute(
+      keccak256(abi.encodePacked(from, token, nonce)),
+      from,
+      token,
+      amt,
+      salt,
+      payTo,
+      msg.sender,
+      data
+    );
+  }
+}
+```
+
+### Key Components
+
+1. **Token Transfer**: Uses ERC-3009 `transferWithAuthorization` for gasless transfers
+2. **Fee Handling**: Deducts facilitator fee from the payment amount
+3. **Hook Execution**: Optionally executes custom logic through the hook contract
+4. **Token Approval**: Automatically approves tokens for the hook contract
+
+### Settlement Hook Interface
+```solidity
+interface ISettlementHook {
+  function execute(
+    bytes32 paymentId,
+    address from,
+    address token,
+    uint256 amount,
+    bytes32 salt,
+    address payTo,
+    address facilitator,
+    bytes calldata data
+  ) external;
+}
+```
+
+## Use Cases
+
+### 1. Split Payment
+- Distribute payment across multiple recipients
+- Useful for revenue sharing, royalties, and collaborative projects
+
+### 2. Pay & Mint
+- Combine payment with NFT or token minting
+- Enable seamless purchase-to-ownership flow
+- Great for digital collectibles and memberships
+
+### 3. Rewards Distribution
+- Automatically distribute rewards on payment
+- Support for points systems, badges, and rebates
+- Enable loyalty programs and incentive structures
+
+### 4. Custom Hooks
+- Build any custom smart contract logic
+- Execute arbitrary code as part of payment flow
+- Composable with existing DeFi protocols
+
+## Getting Started
+
+### For Developers
+1. Visit the documentation: https://x402x.org/docs
+2. Explore example implementations on GitHub
+3. Try the testnet demo to understand the flow
+4. Review the settlement router contract
+
+### Resources
+- Testnet Demo: Available on x402x website
+- GitHub Repository: Complete implementations and examples
+- Documentation: Comprehensive guides for builders
+- Ecosystem Directory: Explore existing x402x integrations
+
+## Technical Notes
+- The code snippets shown are for demonstration purposes
+- Find complete implementations on the x402x GitHub repository
+- Built on top of ERC-3009 (Transfer With Authorization)
+- Compatible with EIP-712 typed structured data signing
+- Enables meta-transactions for gasless user experience
+
+## Project Information
+© x402x Protocol - A project from Nuwa AI
+
+## Standards Used
+- ERC-3009: Transfer With Authorization
+- EIP-712: Typed Structured Data Hashing and Signing
+- ERC-20: Token Standard
+- x402: Original payments protocol
+
+## Benefits
+1. **Gas-Free**: Users don't need native tokens for gas
+2. **Approval-Free**: No need for separate approval transactions
+3. **Composable**: Integrate with any smart contract logic
+4. **Secure**: Built on established standards (ERC-3009, EIP-712)
+5. **Flexible**: Support for various payment workflows through hooks

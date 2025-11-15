@@ -1,0 +1,60 @@
+{
+  "skills": {
+    "aptos-move": {
+      "path": "./skills/aptos-move",
+      "enabled": true,
+      "description": "Aptos Move smart contract development skills"
+    },
+    "x402": {
+      "path": "./skills/x402",
+      "enabled": true,
+      "description": "x402 micropayment protocol expertise"
+    }
+  },
+  "hooks": {
+    "PostToolUse": []
+  },
+  "context": {
+    "projectName": "x402-aptos",
+    "projectType": "blockchain-payment-protocol",
+    "description": "x402 micropayment protocol implementation for Aptos blockchain",
+    "primaryLanguages": ["move", "typescript", "react"],
+    "frameworks": ["aptos", "react", "next.js"],
+    "architecture": "monorepo",
+    "packages": {
+      "core": "Browser-side x402 protocol (signatures, BCS encoding, Move contract)",
+      "react": "React hooks for x402 payments (useX402Payment)",
+      "server": "Server-side facilitator (transaction submission, validation)"
+    },
+    "technologies": {
+      "blockchain": "Aptos (Move language)",
+      "cryptography": "Ed25519 signatures, BCS encoding",
+      "standards": "x402 micropayments (adapted from EVM to Aptos)",
+      "serialization": "TOON format for efficient LLM data exchange"
+    },
+    "productionStatus": {
+      "deployed": true,
+      "liveApp": "dAudio (daudio.app)"
+    },
+    "toonIntegration": {
+      "purpose": "Serialize payment data, transaction logs, and analytics for LLM processing",
+      "useCases": [
+        "Payment history analysis",
+        "Transaction debugging",
+        "Analytics reporting",
+        "Payment pattern detection"
+      ]
+    }
+  },
+  "preferences": {
+    "codeStyle": {
+      "typescript": "strict mode, explicit types",
+      "move": "security-first, comprehensive tests",
+      "formatting": "2-space indentation"
+    },
+    "testing": {
+      "move": "aptos move test",
+      "typescript": "vitest"
+    }
+  }
+}

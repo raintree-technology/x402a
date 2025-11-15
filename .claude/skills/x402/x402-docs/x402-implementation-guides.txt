@@ -1,0 +1,747 @@
+# x402 Implementation Guides
+
+## Table of Contents
+1. Quickstart for Sellers
+2. Quickstart for Buyers
+3. Crypto Paywall Implementation
+4. Autonomous Payments with Circle Wallets
+5. MCP Server Integration
+6. Solana Implementation
+7. IPFS Pinning Integration
+8. Starter Kit Setup
+
+---
+
+## 1. Quickstart for Sellers
+
+### Overview
+The x402 integration enables API providers to charge buyers and AI agents for access using crypto payments on Base and Solana networks.
+
+### Prerequisites
+- A crypto wallet for receiving funds
+- Node.js/npm or Python/pip
+- An existing API or server
+- CDP account with API keys (for mainnet only)
+
+### Implementation Steps
+
+#### Step 1: Install Dependencies
+Select your framework and install the appropriate x402 middleware package:
+
+**Node.js:**
+- Express: `npm install @coinbase/x402-express`
+- Next.js: `npm install @coinbase/x402-next`
+- Hono: `npm install @coinbase/x402-hono`
+
+**Python:**
+- FastAPI: `pip install x402-fastapi`
+- Flask: `pip install x402-flask`
+
+For mainnet, also install: `npm install @coinbase/x402`
+
+#### Step 2: Add Payment Middleware
+Configure middleware by specifying:
+- Receiving wallet address
+- Protected routes with pricing (e.g., "$0.001")
+- Network (testnet: "base-sepolia"; mainnet: "base" or "solana")
+- Facilitator URL: "https://x402.org/facilitator" for testing
+
+**Example (Express):**
+```javascript
+const { paymentMiddleware } = require('@coinbase/x402-express');
+
+app.use(
+  paymentMiddleware(
+    "0xYourWalletAddress",
+    {
+      "GET /api/data": { price: "$0.01", network: "base-sepolia" }
+    },
+    { url: "https://x402.org/facilitator" }
+  )
+);
+```
+
+#### Step 3: Test Integration
+When a request reaches a protected route without payment:
+1. Server responds with "HTTP 402 Payment Required"
+2. Response includes payment instructions
+3. Client signs payment authorization
+4. Client retries with "X-PAYMENT" header
+5. Server verifies and returns resource
+
+#### Step 4: Enhance Discoverability
+Add metadata to your configuration:
+```javascript
+{
+  "GET /api/data": {
+    price: "$0.01",
+    network: "base-sepolia",
+    description: "Get real-time market data",
+    inputSchema: {...},
+    outputSchema: {...}
+  }
+}
+```
+
+This automatically lists endpoints in the x402 Bazaar marketplace.
+
+#### Step 5: Transition to Mainnet
+1. Replace testnet facilitator URL with CDP facilitator object
+2. Update network from "base-sepolia" to "base"
+3. Ensure receiving wallet is real mainnet address
+4. Configure CDP API credentials
+
+### Supported Networks
+- Base (mainnet)
+- Solana (mainnet)
+- Base Sepolia (testnet)
+- Solana Devnet (testnet)
+
+---
+
+## 2. Quickstart for Buyers
+
+### Overview
+Enable programmatic interaction with payment-required services.
+
+### Requirements
+- Cryptocurrency wallet with USDC on EVM-compatible network
+- Node.js/npm or Python/pip
+- Access to x402-enabled service
+
+### Installation & Setup
+
+#### Package Installation
+
+**Node.js:**
+```bash
+npm install x402-axios
+# OR
+npm install x402-fetch
+```
+
+**Python:**
+```bash
+pip install x402
+```
+
+#### Wallet Configuration
+
+**Option 1: CDP Server Wallet (Recommended)**
+1. Obtain API credentials from cdp.coinbase.com
+2. Configure in your application
+
+**Option 2: Standalone Libraries**
+- Node.js EVM: viem
+- Python EVM: eth-account
+- Solana: SolanaKit
+
+### Making Paid Requests
+
+The helper packages automate payment flows:
+
+**x402-fetch (Node.js):**
+```javascript
+const { createX402Fetch } = require('x402-fetch');
+
+const fetch = createX402Fetch({
+  wallet: yourWalletInstance
+});
+
+const response = await fetch('https://api.example.com/data');
+```
+
+**x402-axios (Node.js):**
+```javascript
+const axios = require('axios');
+const { x402Interceptor } = require('x402-axios');
+
+const client = axios.create();
+client.interceptors.request.use(x402Interceptor(wallet));
+
+const response = await client.get('https://api.example.com/data');
+```
+
+**Python:**
+```python
+from x402 import X402Client
+
+client = X402Client(wallet=your_wallet)
+response = client.get('https://api.example.com/data')
+```
+
+### Service Discovery
+
+Use x402 Bazaar for dynamic discovery:
+```javascript
+const services = await discoverServices({
+  category: 'data-analytics',
+  maxPrice: '$0.05'
+});
+```
+
+### Error Handling
+Systems throw errors for:
+- Missing wallet configurations
+- Repeated payment attempts
+- Payment header creation failures
+- Insufficient funds
+
+---
+
+## 3. Crypto Paywall Implementation
+
+### Overview
+Build an internet-native payment system using x402 with HTTP 402 status codes.
+
+### Architecture
+- **Clients (Buyers):** Request resources and submit signed payment proofs
+- **Servers (Sellers):** Define payment requirements and verify transactions
+- **Facilitators:** Verify payments and settle transactions (Coinbase CDP)
+
+### Prerequisites
+- Node.js v22+
+- USDC on Base Sepolia (Circle faucet)
+- QuickNode Base Sepolia endpoint
+
+### Server Implementation
+
+**Express Backend:**
+```javascript
+const express = require('express');
+const { paymentMiddleware } = require('@coinbase/x402-express');
+
+const app = express();
+
+app.use(
+  paymentMiddleware(
+    process.env.WALLET_ADDRESS,
+    {
+      "GET /authenticate": {
+        price: "$0.10",
+        network: "base-sepolia"
+      }
+    }
+  )
+);
+
+app.get('/authenticate', (req, res) => {
+  res.json({ authenticated: true });
+});
+
+app.listen(4021);
+```
+
+### Frontend Implementation
+
+**Payment Flow:**
+1. User clicks payment button
+2. Client requests protected resource
+3. Server responds with 402 status and payment instructions
+4. Client signs TransferWithAuthorization message in wallet
+5. Client retries with X-PAYMENT header
+6. Server verifies payment via facilitator
+7. User redirected to protected content
+
+**Frontend Example:**
+```javascript
+async function makePayment() {
+  try {
+    // Initial request triggers 402
+    const response = await fetch('/authenticate');
+
+    if (response.status === 402) {
+      const paymentReq = await response.json();
+
+      // Sign payment with wallet
+      const signature = await wallet.signTypedData(paymentReq);
+
+      // Retry with payment
+      const finalResponse = await fetch('/authenticate', {
+        headers: {
+          'X-PAYMENT': btoa(JSON.stringify(signature))
+        }
+      });
+
+      if (finalResponse.ok) {
+        window.location.href = '/protected-content';
+      }
+    }
+  } catch (error) {
+    console.error('Payment failed:', error);
+  }
+}
+```
+
+### Testing
+Run locally: `npm run dev` on port 4021
+
+---
+
+## 4. Autonomous Payments with Circle Wallets
+
+### Overview
+Enable AI agents to execute autonomous payments using Circle Developer-Controlled Wallets, USDC, and x402.
+
+### Core Components
+
+**AI Agent Framework**
+- Built using Langchain with OpenAI GPT-4o mini
+- Equipped with tools for wallet creation, funding, and API interactions
+- Capable of autonomous decision-making
+
+**Circle Developer-Controlled Wallets**
+- Custodial crypto wallet infrastructure using MPC technology
+- Supports USDC across multiple blockchains
+- Managed via API/SDK without exposing private keys
+- EOA wallets for transaction signing
+
+### Implementation Steps
+
+#### Step 1: Wallet Creation & Funding
+
+**Create EOA Wallet:**
+```typescript
+const walletResponse = await circleDeveloperSdk.createWallets({
+  accountType: "EOA",
+  blockchains: ["EVM-TESTNET"],
+  count: 1,
+  walletSetId,
+});
+```
+
+**Fund via Testnet Faucet:**
+```typescript
+const response = await axios.post(
+  "https://api.circle.com/v1/faucet/drips",
+  {
+    address: address,
+    blockchain: "BASE-SEPOLIA",
+    usdc: true
+  }
+);
+```
+
+#### Step 2: AI Agent Configuration
+
+**Configure Langchain Agent:**
+```typescript
+import { createToolCallingAgent } from 'langchain/agents';
+
+const tools = [
+  walletCreationTool,
+  walletFundingTool,
+  riskProfileTool
+];
+
+const agent = createToolCallingAgent({
+  llm,
+  tools,
+  prompt
+});
+```
+
+#### Step 3: Server-Side Paywall
+
+**Implement x402 Middleware:**
+```typescript
+import { paymentMiddleware } from '@coinbase/x402-express';
+
+app.use(
+  paymentMiddleware(
+    recipientWallet.address,
+    {
+      "GET /risk-profile": {
+        price: "$0.01",
+        network: "base-sepolia"
+      }
+    },
+    {
+      url: "https://x402.org/facilitator"
+    }
+  )
+);
+```
+
+### Payment Flow Sequence
+
+1. Agent requests protected resource
+2. Server responds with HTTP 402 Payment Required
+3. Agent signs payment authorization using Circle's Signing API
+4. Agent retries request with X-PAYMENT header
+5. Server forwards authorization to x402 facilitator
+6. Facilitator validates and settles payment on-chain
+7. Server returns requested data upon confirmation
+
+### Real-World Application
+AI agent autonomously purchasing a "wallet risk profile" report by paying $0.01 in USDC—transaction occurs entirely programmatically without manual intervention.
+
+---
+
+## 5. MCP Server Integration
+
+### Overview
+Enable MCP servers to handle payment handshakes transparently, making paid APIs accessible through Claude Desktop.
+
+### Prerequisites
+- Node.js version 20+
+- x402-compatible API endpoint
+- Ethereum wallet with USDC (Base Sepolia or mainnet)
+- Claude Desktop with MCP support
+
+### Setup
+
+**Install Dependencies:**
+```bash
+npm install @modelcontextprotocol/sdk axios viem x402-axios dotenv
+```
+
+**Environment Configuration:**
+```
+PRIVATE_KEY=your_wallet_private_key
+RESOURCE_SERVER_URL=https://api.example.com
+ENDPOINT_PATH=/data
+```
+
+### Core Implementation
+
+**MCP Server Setup:**
+```typescript
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { createX402Axios } from 'x402-axios';
+import { privateKeyToAccount } from 'viem/accounts';
+
+const account = privateKeyToAccount(process.env.PRIVATE_KEY);
+
+const axiosClient = createX402Axios({
+  wallet: account,
+  baseURL: process.env.RESOURCE_SERVER_URL
+});
+
+const server = new Server({
+  name: 'x402-mcp-server',
+  version: '1.0.0'
+});
+
+server.setRequestHandler(ListToolsRequestSchema, async () => ({
+  tools: [{
+    name: 'fetch_data',
+    description: 'Fetch data from x402-protected API',
+    inputSchema: {
+      type: 'object',
+      properties: {}
+    }
+  }]
+}));
+
+server.setRequestHandler(CallToolRequestSchema, async (request) => {
+  if (request.params.name === 'fetch_data') {
+    const response = await axiosClient.get(process.env.ENDPOINT_PATH);
+    return { content: [{ type: 'text', text: JSON.stringify(response.data) }] };
+  }
+});
+```
+
+### Claude Desktop Integration
+
+**Add to Claude Desktop MCP settings:**
+```json
+{
+  "mcpServers": {
+    "x402-server": {
+      "command": "node",
+      "args": ["/path/to/mcp-server.js"],
+      "env": {
+        "PRIVATE_KEY": "your_key",
+        "RESOURCE_SERVER_URL": "https://api.example.com",
+        "ENDPOINT_PATH": "/data"
+      }
+    }
+  }
+}
+```
+
+### Architecture
+Three components:
+1. x402 server (paid API provider)
+2. MCP server (middleware handling payments)
+3. Claude Desktop (client requesting data)
+
+---
+
+## 6. Solana Implementation
+
+### Overview
+Implement HTTP 402 Payment Required on Solana with minimal code.
+
+### Core Protocol Flow
+
+1. Client requests protected endpoint
+2. Server responds with 402 status and payment requirements
+3. Client creates signed transaction with transfer instruction
+4. Client retries with transaction in X-PAYMENT header (base64)
+5. Server verifies, broadcasts, and confirms on-chain
+6. Server responds with 200 OK upon confirmation
+
+### Server Setup (Express)
+
+```javascript
+const express = require('express');
+const { Connection, PublicKey } = require('@solana/web3.js');
+
+const app = express();
+const connection = new Connection('https://api.mainnet-beta.solana.com');
+
+app.get('/api/data', async (req, res) => {
+  const payment = req.headers['x-payment'];
+
+  if (!payment) {
+    return res.status(402).json({
+      payment_required: {
+        recipient: 'YourSolanaAddress',
+        amount: 0.001, // SOL or USDC
+        token: 'USDC_MINT_ADDRESS'
+      }
+    });
+  }
+
+  // Decode and verify transaction
+  const tx = Buffer.from(payment, 'base64');
+
+  // Simulate transaction
+  const simulation = await connection.simulateTransaction(tx);
+
+  if (simulation.value.err) {
+    return res.status(400).json({ error: 'Invalid payment' });
+  }
+
+  // Broadcast transaction
+  const signature = await connection.sendRawTransaction(tx);
+
+  // Confirm
+  await connection.confirmTransaction(signature);
+
+  // Return resource
+  res.json({ data: 'Protected content' });
+});
+```
+
+### Client Setup (Node.js)
+
+```javascript
+const { Connection, Keypair, Transaction, SystemProgram } = require('@solana/web3.js');
+
+async function makePayment() {
+  // Request payment quote
+  const response = await fetch('https://api.example.com/api/data');
+
+  if (response.status === 402) {
+    const { payment_required } = await response.json();
+
+    // Create transaction
+    const connection = new Connection('https://api.mainnet-beta.solana.com');
+    const wallet = Keypair.fromSecretKey(yourSecretKey);
+
+    const transaction = new Transaction().add(
+      SystemProgram.transfer({
+        fromPubkey: wallet.publicKey,
+        toPubkey: new PublicKey(payment_required.recipient),
+        lamports: payment_required.amount * 1e9
+      })
+    );
+
+    // Sign and serialize
+    transaction.feePayer = wallet.publicKey;
+    const { blockhash } = await connection.getRecentBlockhash();
+    transaction.recentBlockhash = blockhash;
+    transaction.sign(wallet);
+
+    const serialized = transaction.serialize().toString('base64');
+
+    // Retry with payment
+    const finalResponse = await fetch('https://api.example.com/api/data', {
+      headers: { 'X-PAYMENT': serialized }
+    });
+
+    const data = await finalResponse.json();
+    console.log(data);
+  }
+}
+```
+
+### Key Advantages on Solana
+- Low transaction costs (fractions of a cent)
+- Instant settlement (100ms with Corbits)
+- True micropayments viable
+- Real-time access control
+
+### Available SDKs
+- Corbits: Solana-first SDK
+- Coinbase: TypeScript/Python reference
+- PayAI: Transaction fee handling
+- ACK: Agent identity verification
+- MCPay.tech: MCP server micropayments
+
+---
+
+## 7. IPFS Pinning Integration
+
+### Overview
+Implement x402 payments for IPFS pinning services using Pinata.
+
+### Server Setup with Hono
+
+**Dynamic Pricing Formula:**
+"$0.10/GB × 12 months"
+
+**Middleware Configuration:**
+```typescript
+import { Hono } from 'hono';
+import { paymentMiddleware } from '@coinbase/x402-hono';
+
+const app = new Hono();
+
+app.use('*', paymentMiddleware(
+  process.env.WALLET_ADDRESS,
+  {
+    'POST /pin/:network': (req) => {
+      const sizeGB = req.body.size / 1e9;
+      const price = sizeGB * 0.10 * 12;
+      return { price: `$${price}`, network: 'base' };
+    },
+    'GET /retrieve/private': {
+      price: '$0.01',
+      network: 'base'
+    }
+  }
+));
+```
+
+### Pinning Implementation
+
+**Endpoint Handler:**
+```typescript
+app.post('/pin/:network', async (c) => {
+  const { size, isPrivate } = await c.req.json();
+  const network = c.req.param('network');
+
+  // Generate presigned URL
+  const presignedUrl = await pinata.createPresignedUrl({
+    maxSize: size,
+    keyValues: isPrivate ? {
+      owner: c.req.header('x-payment-address')
+    } : undefined
+  });
+
+  return c.json({ uploadUrl: presignedUrl });
+});
+```
+
+**Client Workflow:**
+1. Call endpoint with desired file size
+2. Receive presigned URL with size restrictions
+3. Upload file directly via FormData
+4. Payment occurs automatically during initial request
+
+### Private File Retrieval
+
+**Ownership Verification:**
+```typescript
+app.get('/retrieve/private', async (c) => {
+  const paymentAddress = c.req.header('x-payment-address');
+
+  // Query files by wallet address
+  const files = await pinata.listFiles({
+    keyValues: { owner: paymentAddress }
+  });
+
+  if (files.length === 0) {
+    return c.json({ error: 'Unauthorized' }, 401);
+  }
+
+  // Generate temporary access links
+  const signedUrls = await Promise.all(
+    files.map(file => pinata.createSignedUrl(file.cid))
+  );
+
+  return c.json({ files: signedUrls });
+});
+```
+
+---
+
+## 8. Starter Kit Setup
+
+### Overview
+Simplest starter kit for building and deploying x402 APIs quickly.
+
+### Components
+- **ExampleService**: Business logic (OpenAI by default)
+- **MerchantExecutor**: Payment verification and settlement
+- **Express Server**: Orchestrates payment flow
+
+### Quick Setup
+
+**Prerequisites:**
+- Node.js 18+
+- Wallet with ETH for gas fees
+- AI provider API key (OpenAI or EigenAI)
+- USDC-receiving wallet address
+
+**Installation:**
+```bash
+git clone https://github.com/dabit3/x402-starter-kit
+cd x402-starter-kit
+npm install
+cp .env.example .env
+# Edit .env with your configuration
+npm run dev
+```
+
+### Environment Variables
+
+```
+PAY_TO_ADDRESS=0xYourWalletAddress
+OPENAI_API_KEY=your_openai_key
+NETWORK=base-sepolia
+SETTLEMENT_MODE=facilitator
+```
+
+### Settlement Modes
+
+**Facilitator Mode (Default):**
+```
+SETTLEMENT_MODE=facilitator
+FACILITATOR_URL=https://x402.org/facilitator
+```
+
+**Local Mode:**
+```
+SETTLEMENT_MODE=local
+PRIVATE_KEY=your_private_key
+RPC_URL=https://base-sepolia.infura.io/v3/your-project-id
+```
+
+### Payment Flow
+
+1. Request triggers 402 response with payment requirements
+2. Client signs and submits payment
+3. API verifies payment
+4. Service processes request
+5. Transaction settles on-chain
+6. Results returned to client
+
+### Testing
+
+```bash
+# Start server
+npm run dev
+
+# Test endpoint (separate terminal)
+curl http://localhost:3000/api/service
+# Returns 402 with payment instructions
+
+# Make payment and retry
+# (use provided client script)
+node client-example.js
+```

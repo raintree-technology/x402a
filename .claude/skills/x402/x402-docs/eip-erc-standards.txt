@@ -1,0 +1,894 @@
+# EIP/ERC Standards for x402
+
+## Table of Contents
+1. ERC-3009: Transfer With Authorization
+2. EIP-712: Typed Structured Data Hashing and Signing
+3. EIP-2612: Permit for ERC-20
+4. ERC-4337: Account Abstraction
+
+---
+
+## 1. ERC-3009: Transfer With Authorization
+
+### Overview
+ERC-3009 defines a standard for executing fungible asset transfers via signed authorizations, enabling meta-transactions and atomic interactions with ERC-20 tokens per EIP-712 specifications.
+
+**Status:** Draft (Standards Track ERC, created September 28, 2020)
+
+### Core Functions
+
+#### transferWithAuthorization()
+
+Executes a transfer initiated by a third party using a signed authorization from the token owner.
+
+**Parameters:**
+- `from` (address): Payer address
+- `to` (address): Recipient address
+- `value` (uint256): Transfer amount
+- `validAfter` (uint256): Unix timestamp when authorization becomes valid
+- `validBefore` (uint256): Unix timestamp when authorization expires
+- `nonce` (bytes32): Unique 32-byte identifier
+- `v` (uint8): Signature component
+- `r` (bytes32): Signature component
+- `s` (bytes32): Signature component
+
+**Function Signature:**
+```solidity
+function transferWithAuthorization(
+    address from,
+    address to,
+    uint256 value,
+    uint256 validAfter,
+    uint256 validBefore,
+    bytes32 nonce,
+    uint8 v,
+    bytes32 r,
+    bytes32 s
+) external;
+```
+
+#### receiveWithAuthorization()
+
+Variant providing enhanced security by verifying the caller matches the intended recipient, preventing front-running attacks on deposit operations.
+
+**Function Signature:**
+```solidity
+function receiveWithAuthorization(
+    address from,
+    address to,
+    uint256 value,
+    uint256 validAfter,
+    uint256 validBefore,
+    bytes32 nonce,
+    uint8 v,
+    bytes32 r,
+    bytes32 s
+) external;
+```
+
+**Additional Security:**
+- Requires `msg.sender == to`
+- Prevents unauthorized parties from submitting the authorization
+- Ideal for deposit scenarios
+
+#### authorizationState()
+
+Query function returning whether a specific nonce has been utilized.
+
+**Function Signature:**
+```solidity
+function authorizationState(
+    address authorizer,
+    bytes32 nonce
+) external view returns (bool);
+```
+
+**Returns:**
+- `true` if nonce has been used
+- `false` if nonce is still available
+
+#### cancelAuthorization() (Optional)
+
+Allows users to revoke unused authorizations via signed message.
+
+**Function Signature:**
+```solidity
+function cancelAuthorization(
+    address authorizer,
+    bytes32 nonce,
+    uint8 v,
+    bytes32 r,
+    bytes32 s
+) external;
+```
+
+### Key Features
+
+The specification enables users to:
+
+1. **Delegate gas payment obligations** - Third parties can pay for transactions
+2. **Pay fees in token value** - No ETH required for gas
+3. **Execute multiple operations atomically** - Combine transfers with other actions
+4. **Use randomized nonces** - Not restricted to sequential values
+5. **Schedule transactions** - Validity windows for time-based execution
+
+### Technical Requirements
+
+#### Type Hashes (EIP-712)
+
+**TRANSFER_WITH_AUTHORIZATION_TYPEHASH:**
+```
+0x7c7c6cdb67a18743f49ec6fa9b35f50d52ed05cbed4cc592e13b44501c1a2267
+```
+
+**RECEIVE_WITH_AUTHORIZATION_TYPEHASH:**
+```
+0xd099cc98ef71107a616c4f0f941f04c322d8e254fe26b3c6668db87aae413de8
+```
+
+#### Signature Requirements
+
+Signatures must comply with:
+- EIP-712 typed message signing standards
+- Domain separation to prevent replay attacks across chains
+- secp256k1 elliptic curve cryptography
+- Valid `v`, `r`, `s` components
+
+#### Domain Separator
+
+Must include:
+- Contract name
+- Version
+- Chain ID
+- Verifying contract address
+
+### Message Structure (EIP-712)
+
+**Transfer With Authorization:**
+```solidity
+struct TransferWithAuthorization {
+    address from;
+    address to;
+    uint256 value;
+    uint256 validAfter;
+    uint256 validBefore;
+    bytes32 nonce;
+}
+```
+
+**Type String:**
+```
+Transfer With Authorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)
+```
+
+### Validation Rules
+
+A `transferWithAuthorization` call succeeds only when:
+1. Current block timestamp is after `validAfter`
+2. Current block timestamp is before `validBefore`
+3. The `from` address is not zero
+4. The nonce has not been used previously
+5. The signature (v, r, s) is valid per secp256k1
+6. The recovered signer matches the `from` address
+
+### Events
+
+**AuthorizationUsed:**
+```solidity
+event AuthorizationUsed(
+    address indexed authorizer,
+    bytes32 indexed nonce
+);
+```
+
+**AuthorizationCanceled:**
+```solidity
+event AuthorizationCanceled(
+    address indexed authorizer,
+    bytes32 indexed nonce
+);
+```
+
+### Use Cases in x402
+
+1. **Gasless Payments** - Clients sign authorizations without needing ETH
+2. **Facilitator Submission** - Facilitators submit transactions on behalf of users
+3. **Atomic Operations** - Combine payment with resource delivery
+4. **Meta-transactions** - Enable complex payment flows without user gas
+
+### Security Considerations
+
+- **Nonce Management:** Use cryptographically random nonces to prevent prediction
+- **Validity Windows:** Set appropriate time bounds for authorizations
+- **Signature Verification:** Always validate all components before execution
+- **Replay Protection:** Domain separator prevents cross-chain replay attacks
+- **Front-running:** Use `receiveWithAuthorization` for deposit scenarios
+
+---
+
+## 2. EIP-712: Typed Structured Data Hashing and Signing
+
+### Overview
+
+EIP-712 establishes a standard for hashing and signing typed structured data, moving beyond simple bytestring signing. It provides "a procedure for hashing and signing of typed structured data as opposed to just bytestrings."
+
+### Core Encoding Method
+
+The standard extends signable messages using:
+```
+"\x19\x01" ‖ domainSeparator ‖ hashStruct(message)
+```
+
+**Compliance:**
+- Follows ERC-191 with version byte `0x01`
+- Provides human-readable signature context
+- Enables wallet UI to display structured data
+
+### Supported Data Types
+
+#### Atomic Types
+- `bytes1` through `bytes32`
+- `uint8` through `uint256`
+- `int8` through `int256`
+- `bool`
+- `address`
+
+#### Dynamic Types
+- `bytes`
+- `string`
+
+#### Reference Types
+- Arrays (fixed and dynamic)
+- Structs (custom types)
+
+### Core Functions
+
+#### 1. hashStruct
+
+Combines a type hash with encoded data:
+```
+hashStruct(s) = keccak256(typeHash ‖ encodeData(s))
+```
+
+**Purpose:**
+- Creates unique hash for struct instance
+- Includes type information
+- Prevents type confusion attacks
+
+#### 2. encodeType
+
+Formats struct definitions:
+```
+name(type1 name1,type2 name2,...)
+```
+
+**Example:**
+```
+Mail(address from,address to,string contents)
+```
+
+**Nested Structs:**
+Must include all referenced types alphabetically sorted (except primary type).
+
+#### 3. encodeData
+
+Concatenates 32-byte encoded member values:
+- Atomic types: Zero-padded to 32 bytes
+- Dynamic types: `keccak256` hash
+- Arrays: `keccak256` of concatenated encoded elements
+- Structs: `hashStruct` result
+
+**Example:**
+```solidity
+function encodeData(Mail memory mail) internal pure returns (bytes memory) {
+    return abi.encode(
+        MAIL_TYPEHASH,
+        mail.from,
+        mail.to,
+        keccak256(bytes(mail.contents))
+    );
+}
+```
+
+#### 4. domainSeparator
+
+Creates collision-resistant signatures using EIP712Domain:
+
+**Standard Fields:**
+- `name` (string): User-readable name
+- `version` (string): Current version
+- `chainId` (uint256): EIP-155 chain id
+- `verifyingContract` (address): Contract address
+- `salt` (bytes32): Disambiguating salt
+
+**Example:**
+```solidity
+bytes32 DOMAIN_SEPARATOR = keccak256(abi.encode(
+    keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+    keccak256(bytes("MyDApp")),
+    keccak256(bytes("1")),
+    chainId,
+    address(this)
+));
+```
+
+### Complete Signing Flow
+
+**1. Define Domain:**
+```javascript
+const domain = {
+    name: 'MyDApp',
+    version: '1',
+    chainId: 1,
+    verifyingContract: '0x...'
+};
+```
+
+**2. Define Types:**
+```javascript
+const types = {
+    Mail: [
+        { name: 'from', type: 'address' },
+        { name: 'to', type: 'address' },
+        { name: 'contents', type: 'string' }
+    ]
+};
+```
+
+**3. Create Message:**
+```javascript
+const message = {
+    from: '0x...',
+    to: '0x...',
+    contents: 'Hello, World!'
+};
+```
+
+**4. Sign:**
+```javascript
+const signature = await signer._signTypedData(domain, types, message);
+```
+
+**5. Verify:**
+```solidity
+bytes32 digest = keccak256(abi.encodePacked(
+    "\x19\x01",
+    DOMAIN_SEPARATOR,
+    hashStruct(message)
+));
+
+address signer = ecrecover(digest, v, r, s);
+```
+
+### RPC and API Methods
+
+**JSON-RPC Method:**
+```
+eth_signTypedData
+```
+
+**Web3.js Methods:**
+```javascript
+web3.eth.signTypedData(address, typedData);
+web3.eth.personal.signTypedData(typedData, address);
+```
+
+### Use Cases in x402
+
+1. **Payment Authorization** - Sign ERC-3009 transfer authorizations
+2. **Message Authentication** - Verify client identity
+3. **Parameter Validation** - Ensure payment details haven't been tampered with
+4. **Cross-chain Security** - Domain separator prevents replay attacks
+
+### Security Considerations
+
+**What EIP-712 Provides:**
+- Type safety in signatures
+- Human-readable signature context
+- Domain separation
+- Structured data validation
+
+**What EIP-712 Does NOT Provide:**
+- Replay protection (must be implemented separately)
+- Nonce management
+- Expiration handling
+- Transaction ordering
+
+**Best Practices:**
+1. Always include domain separator
+2. Use nonces for replay protection
+3. Implement expiration timestamps
+4. Validate all signature components
+5. Never reuse signatures across chains
+
+### Message Format
+
+**Full Signature Data:**
+```
+0x19 0x01 <domainSeparator> <hashStruct(message)>
+```
+
+**Visual Breakdown:**
+- `0x19`: Fixed prefix (ERC-191)
+- `0x01`: Version byte
+- `domainSeparator`: 32 bytes
+- `hashStruct(message)`: 32 bytes
+- **Total:** 66 bytes before hashing
+
+---
+
+## 3. EIP-2612: Permit for ERC-20
+
+### Overview
+
+ERC-2612 extends EIP-20 tokens by allowing users to modify allowances using signed messages rather than direct transactions, eliminating the need for separate `approve` and `transferFrom` calls.
+
+**Key Innovation:** Gasless approvals via signatures
+
+### Required Functions
+
+#### 1. permit()
+
+Modifies allowance via cryptographic signature.
+
+**Function Signature:**
+```solidity
+function permit(
+    address owner,
+    address spender,
+    uint256 value,
+    uint256 deadline,
+    uint8 v,
+    bytes32 r,
+    bytes32 s
+) external;
+```
+
+**Parameters:**
+- `owner`: Token holder granting allowance
+- `spender`: Address receiving approval
+- `value`: Allowance amount
+- `deadline`: Unix timestamp expiration
+- `v`, `r`, `s`: Signature components
+
+#### 2. nonces()
+
+Returns the signer's current nonce for replay protection.
+
+**Function Signature:**
+```solidity
+function nonces(address owner) external view returns (uint256);
+```
+
+**Purpose:**
+- Sequential nonce tracking
+- Prevents replay attacks
+- Increments after each permit
+
+#### 3. DOMAIN_SEPARATOR()
+
+Returns the EIP-712 domain separator.
+
+**Function Signature:**
+```solidity
+function DOMAIN_SEPARATOR() external view returns (bytes32);
+```
+
+### Permit Function Conditions
+
+A `permit` call succeeds only when:
+1. Current block timestamp ≤ `deadline`
+2. The `owner` address is not zero
+3. The nonce matches current value for that owner
+4. The signature (v, r, s) is valid per secp256k1
+5. Recovered signer matches `owner`
+
+**Upon Success:**
+- Sets `allowance[owner][spender]` to `value`
+- Increments `nonces[owner]`
+- Emits `Approval` event
+
+### Message Structure (EIP-712)
+
+**Type Hash:**
+```solidity
+keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)")
+```
+
+**Struct:**
+```solidity
+struct Permit {
+    address owner;
+    address spender;
+    uint256 value;
+    uint256 nonce;
+    uint256 deadline;
+}
+```
+
+**Domain Separator Fields:**
+- `name`: Token name
+- `version`: "1"
+- `chainId`: EIP-155 chain identifier
+- `verifyingContract`: Token contract address
+
+### Implementation Example
+
+**Client-side Signing:**
+```javascript
+const domain = {
+    name: await token.name(),
+    version: '1',
+    chainId: await signer.getChainId(),
+    verifyingContract: token.address
+};
+
+const types = {
+    Permit: [
+        { name: 'owner', type: 'address' },
+        { name: 'spender', type: 'address' },
+        { name: 'value', type: 'uint256' },
+        { name: 'nonce', type: 'uint256' },
+        { name: 'deadline', type: 'uint256' }
+    ]
+};
+
+const value = {
+    owner: ownerAddress,
+    spender: spenderAddress,
+    value: amount,
+    nonce: await token.nonces(ownerAddress),
+    deadline: Math.floor(Date.now() / 1000) + 3600 // 1 hour
+};
+
+const signature = await signer._signTypedData(domain, types, value);
+const { v, r, s } = ethers.utils.splitSignature(signature);
+
+await token.permit(ownerAddress, spenderAddress, amount, deadline, v, r, s);
+```
+
+**Contract-side Verification:**
+```solidity
+function permit(
+    address owner,
+    address spender,
+    uint256 value,
+    uint256 deadline,
+    uint8 v,
+    bytes32 r,
+    bytes32 s
+) external {
+    require(block.timestamp <= deadline, "Permit expired");
+
+    bytes32 structHash = keccak256(abi.encode(
+        PERMIT_TYPEHASH,
+        owner,
+        spender,
+        value,
+        nonces[owner]++,
+        deadline
+    ));
+
+    bytes32 digest = keccak256(abi.encodePacked(
+        "\x19\x01",
+        DOMAIN_SEPARATOR,
+        structHash
+    ));
+
+    address signer = ecrecover(digest, v, r, s);
+    require(signer == owner && signer != address(0), "Invalid signature");
+
+    _approve(owner, spender, value);
+}
+```
+
+### Use Cases in x402
+
+1. **Gasless Approvals** - Users approve without ETH for gas
+2. **Single Transaction Flow** - Combine approval + transfer
+3. **Improved UX** - No separate approval step
+4. **Meta-transactions** - Relayers can submit permits
+
+### Comparison with ERC-3009
+
+| Feature | EIP-2612 (Permit) | ERC-3009 (Transfer With Authorization) |
+|---------|-------------------|----------------------------------------|
+| Purpose | Approve allowance | Execute transfer |
+| Nonce Type | Sequential | Random bytes32 |
+| Validity Window | Deadline only | validAfter + validBefore |
+| Gas Payer | Anyone | Anyone |
+| Primary Use | Approval step | Direct transfer |
+
+### Key Design Principles
+
+The specification deliberately:
+- Limits scope to approval problem only
+- Maintains ERC-20 compatibility
+- Uses sequential nonces for simplicity
+- Excludes additional signature-based functions
+- Provides flexibility for different use cases
+
+### Security Considerations
+
+**Strengths:**
+- Sequential nonces prevent replay
+- Deadline prevents indefinite validity
+- EIP-712 provides domain separation
+- Standard signature verification
+
+**Limitations:**
+- Cannot cancel individual permits (must increase nonce)
+- Deadline required (no indefinite permits)
+- Sequential nonces (less flexible than random)
+
+**Best Practices:**
+1. Set reasonable deadlines (not too long)
+2. Verify signature before state changes
+3. Increment nonce after successful permit
+4. Check for zero addresses
+5. Emit events for tracking
+
+---
+
+## 4. ERC-4337: Account Abstraction
+
+### Overview
+
+ERC-4337 enables account abstraction without modifying Ethereum's consensus layer. Instead of altering core protocols, it introduces a "UserOperation" pseudo-transaction object processed through an alternative mempool infrastructure.
+
+**Key Innovation:** Smart contract accounts that can validate and execute transactions with custom logic.
+
+### Core Components
+
+#### UserOperation Structure
+
+A UserOperation packages transaction details with 18 fields:
+
+```solidity
+struct PackedUserOperation {
+    address sender;              // Smart account address
+    uint256 nonce;              // Anti-replay parameter
+    bytes initCode;             // Account creation code (if needed)
+    bytes callData;             // Execution data
+    bytes32 accountGasLimits;   // Verification + call gas limits
+    uint256 preVerificationGas; // Overhead gas
+    bytes32 gasFees;            // Max priority + max fee per gas
+    bytes paymasterAndData;     // Paymaster address + data
+    bytes signature;            // Account signature
+}
+```
+
+#### EntryPoint Contract
+
+The central smart contract executing bundles of UserOperations.
+
+**Core Interface:**
+```solidity
+function handleOps(
+    PackedUserOperation[] calldata ops,
+    address payable beneficiary
+) external;
+```
+
+**Responsibilities:**
+- Orchestrates validation and execution loops
+- Handles account creation
+- Verifies signatures
+- Distributes fees
+- Manages deposits
+
+#### Key Actors
+
+**Bundlers**
+- Nodes packaging UserOperations into transactions
+- Monitor alternative mempool
+- Submit bundles to EntryPoint
+- Receive fee compensation
+
+**Paymasters**
+- Contracts sponsoring transaction fees
+- Enable gasless transactions for users
+- Can accept ERC-20 tokens as payment
+- Must maintain ETH deposits with EntryPoint
+
+**Factories**
+- Helper contracts deploying new accounts
+- Support counterfactual addresses
+- Enable account creation within UserOperation
+
+**Senders (Smart Accounts)**
+- Smart contract accounts initiating operations
+- Implement custom validation logic
+- Execute arbitrary transaction logic
+- Must trust and validate EntryPoint
+
+### Validation Process
+
+#### Phase 1: Verification Loop
+
+For each UserOperation:
+1. **Account Validation**: Call `validateUserOp` on sender
+2. **Signature Check**: Verify operation signature
+3. **Deposit Check**: Confirm sender has sufficient deposit
+4. **Paymaster Validation**: If present, call `validatePaymasterUserOp`
+5. **Gas Calculation**: Compute required gas and fees
+
+**Account Validation Interface:**
+```solidity
+function validateUserOp(
+    PackedUserOperation calldata userOp,
+    bytes32 userOpHash,
+    uint256 missingAccountFunds
+) external returns (uint256 validationData);
+```
+
+**Validation Rules:**
+- "The Smart Contract Account MUST validate the caller is a trusted EntryPoint"
+- Must verify signature validity
+- Must pay missing account funds if required
+- Can return time bounds in validationData
+
+#### Phase 2: Execution Loop
+
+For validated operations:
+1. Execute operation calldata
+2. Handle success/failure
+3. Collect fees
+4. Distribute to beneficiary
+
+**Execution Call:**
+```solidity
+call(
+    sender,
+    0,
+    callData,
+    callGasLimit
+)
+```
+
+### Semi-Abstracted Nonce
+
+Operations use single uint256 split into:
+- **192-bit "key"**: Allows parallel transaction sequences
+- **64-bit "sequence"**: Sequential nonce within key
+
+**Benefits:**
+- Custom transaction ordering
+- Parallel nonce sequences
+- Replay protection
+- Hash uniqueness
+
+**Example:**
+```solidity
+// Key 0, sequence 0
+uint256 nonce = 0;
+
+// Key 1, sequence 0
+uint256 nonce = (1 << 64);
+
+// Key 0, sequence 1
+uint256 nonce = 1;
+```
+
+### Paymaster Extension
+
+Paymasters enable fee abstraction and sponsorship.
+
+**Validation Interface:**
+```solidity
+function validatePaymasterUserOp(
+    PackedUserOperation calldata userOp,
+    bytes32 userOpHash,
+    uint256 maxCost
+) external returns (bytes memory context, uint256 validationData);
+```
+
+**Post-Operation Hook:**
+```solidity
+function postOp(
+    PostOpMode mode,
+    bytes calldata context,
+    uint256 actualGasCost,
+    uint256 actualUserOpFeePerGas
+) external;
+```
+
+**Capabilities:**
+- Subsidize gas fees
+- Accept ERC-20 token payment
+- Implement custom fee logic
+- Track usage quotas
+- Conditional sponsorship
+
+### Simulation Requirements
+
+Bundlers validate operations through simulation before mempool inclusion.
+
+**Restrictions:**
+- Limited opcodes (no TIMESTAMP, GASPRICE manipulation)
+- Restricted storage access
+- No external contract dependencies during validation
+- Deterministic validation logic
+
+**Purpose:**
+- Prevent DoS attacks
+- Ensure bundle validity
+- Protect bundler profitability
+- Maintain network security
+
+### Security Architecture
+
+**Centralized Trust:**
+- Single audited EntryPoint contract
+- Reduces verification burden
+- Establishes central trust point
+- Simplifies security model
+
+**Account Responsibilities:**
+- Validate EntryPoint caller
+- Verify signatures correctly
+- Handle deposits properly
+- Protect against replay
+
+**Paymaster Risks:**
+- Must maintain sufficient deposits
+- Can be drained by invalid operations
+- Should implement rate limiting
+- Need careful validation logic
+
+### Use Cases in x402
+
+1. **Gasless Payments** - Users pay without ETH via paymasters
+2. **Bundled Operations** - Combine payment with multiple actions
+3. **Custom Validation** - Implement advanced signature schemes
+4. **Fee Abstraction** - Pay fees in USDC or other tokens
+5. **Account Recovery** - Social recovery mechanisms
+6. **Session Keys** - Limited-authority keys for specific operations
+
+### Integration with x402
+
+**Account Abstraction Benefits for x402:**
+- **Gasless UX**: Paymasters sponsor gas, users only pay USDC
+- **Batch Operations**: Approve + transfer in single UserOperation
+- **Custom Validation**: Support multiple signature schemes
+- **Session Keys**: AI agents can use limited-authority keys
+- **Fee Flexibility**: Pay gas in USDC instead of ETH
+
+**Implementation Pattern:**
+```solidity
+// Smart account executes x402 payment
+function executePayment(
+    address token,
+    address from,
+    address to,
+    uint256 amount,
+    // ... ERC-3009 params
+) external {
+    require(msg.sender == ENTRY_POINT, "Only EntryPoint");
+
+    // Execute ERC-3009 transfer
+    IERC3009(token).transferWithAuthorization(
+        from, to, amount, validAfter, validBefore, nonce, v, r, s
+    );
+}
+```
+
+### Comparison: Traditional vs AA x402
+
+| Aspect | Traditional x402 | AA x402 |
+|--------|------------------|---------|
+| Gas Payment | Client needs ETH | Paymaster sponsors |
+| Signature | EOA only | Custom validation |
+| Transactions | Single operation | Batched operations |
+| Account Type | EOA | Smart contract |
+| Recovery | Private key only | Social/multi-sig |
+
+### Future Implications
+
+Account Abstraction enables:
+- Mainstream UX without private key management
+- AI agents with programmable payment logic
+- Subscription models with automated payments
+- Multi-signature payment authorization
+- Hardware-backed signature validation
+- Quantum-resistant signature schemes

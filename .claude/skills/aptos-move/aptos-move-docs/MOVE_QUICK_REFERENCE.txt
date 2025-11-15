@@ -1,0 +1,493 @@
+===========================================
+MOVE LANGUAGE QUICK REFERENCE
+For Aptos Smart Contract Development
+===========================================
+
+===========================================
+MODULE STRUCTURE
+===========================================
+
+module my_addr::my_module {
+    // Imports
+    use std::signer;
+    use aptos_framework::coin;
+    use aptos_std::table::{Self, Table};
+
+    // Error constants
+    const E_NOT_AUTHORIZED: u64 = 1;
+    const E_ALREADY_EXISTS: u64 = 2;
+
+    // Structs
+    struct MyResource has key {
+        value: u64,
+        owner: address
+    }
+
+    struct MyData has store, copy, drop {
+        amount: u64
+    }
+
+    // Functions
+    public entry fun init(account: &signer) {
+        // Entry function - callable via transaction
+    }
+
+    #[view]
+    public fun get_value(addr: address): u64 acquires MyResource {
+        // View function - read-only, no gas
+    }
+
+    public fun helper(): u64 {
+        // Public function - callable by other modules
+    }
+
+    fun internal(): u64 {
+        // Private function - module only
+    }
+}
+
+===========================================
+ABILITIES (TYPE SAFETY)
+===========================================
+
+copy    - Value can be copied (integers, bools, addresses)
+drop    - Value can be dropped/discarded at end of scope
+store   - Value can be stored inside structs
+key     - Value can be stored in global storage (top-level resource)
+
+Common combinations:
+- key                    : Top-level resource (account-bound)
+- key + store           : Nested resource (can be in other resources)
+- store + drop          : Simple data (discardable)
+- store + drop + copy   : Copyable data (like primitives)
+- (no abilities)        : Hot potato (must be consumed)
+
+Examples:
+struct Resource has key { }                      // Account resource
+struct NestedResource has key, store { }        // Can be nested
+struct Data has store, drop, copy { }           // Simple copyable data
+struct HotPotato { }                            // Must be unpacked
+
+===========================================
+PRIMITIVE TYPES
+===========================================
+
+bool        : true, false
+u8          : 0 to 255
+u16         : 0 to 65,535
+u32         : 0 to 4,294,967,295
+u64         : 0 to 18,446,744,073,709,551,615
+u128        : 0 to 340,282,366,920,938,463,463,374,607,431,768,211,455
+u256        : 0 to very large number
+address     : 0x1, @0x1, @aptos_framework
+vector<T>   : vector<u8>, vector<address>
+signer      : Represents transaction sender (can't be copied)
+
+===========================================
+GLOBAL STORAGE OPERATIONS
+===========================================
+
+// Store resource at address
+move_to<T>(account: &signer, value: T)
+
+// Check if resource exists
+exists<T>(addr: address): bool
+
+// Borrow resource (read-only)
+borrow_global<T>(addr: address): &T
+
+// Borrow resource (mutable)
+borrow_global_mut<T>(addr: address): &mut T
+
+// Remove resource from storage
+move_from<T>(addr: address): T
+
+Example:
+public entry fun create_account(account: &signer) {
+    let addr = signer::address_of(account);
+    assert!(!exists<MyResource>(addr), E_ALREADY_EXISTS);
+
+    move_to(account, MyResource {
+        value: 0,
+        owner: addr
+    });
+}
+
+#[view]
+public fun get_value(addr: address): u64 acquires MyResource {
+    let resource = borrow_global<MyResource>(addr);
+    resource.value
+}
+
+public entry fun update_value(account: &signer, new_value: u64)
+acquires MyResource {
+    let addr = signer::address_of(account);
+    let resource = borrow_global_mut<MyResource>(addr);
+    resource.value = new_value;
+}
+
+===========================================
+COMMON PATTERNS
+===========================================
+
+1. RESOURCE INITIALIZATION
+--------------------------
+public entry fun initialize(account: &signer) {
+    let addr = signer::address_of(account);
+    assert!(!exists<MyResource>(addr), E_ALREADY_EXISTS);
+
+    move_to(account, MyResource {
+        field1: value1,
+        field2: value2
+    });
+}
+
+2. ACCESS CONTROL
+-----------------
+public entry fun admin_only(admin: &signer) acquires AdminCap {
+    let addr = signer::address_of(admin);
+    assert!(exists<AdminCap>(addr), E_NOT_AUTHORIZED);
+    // ... admin operations
+}
+
+3. CAPABILITY PATTERN
+--------------------
+struct AdminCap has key {}
+
+public entry fun grant_admin(account: &signer, admin_addr: address) {
+    // Check caller is authorized first
+    move_to(account, AdminCap {});
+}
+
+4. EVENTS
+---------
+use aptos_framework::event;
+
+#[event]
+struct TransferEvent has drop, store {
+    from: address,
+    to: address,
+    amount: u64
+}
+
+public entry fun transfer(from: &signer, to: address, amount: u64) {
+    // ... transfer logic
+
+    event::emit(TransferEvent {
+        from: signer::address_of(from),
+        to,
+        amount
+    });
+}
+
+5. TABLE STORAGE (KEY-VALUE)
+---------------------------
+use aptos_std::table::{Self, Table};
+
+struct Registry has key {
+    items: Table<address, Item>
+}
+
+public entry fun add_item(account: &signer, item: Item)
+acquires Registry {
+    let addr = signer::address_of(account);
+    let registry = borrow_global_mut<Registry>(addr);
+    table::add(&mut registry.items, addr, item);
+}
+
+6. OBJECT PATTERN (NEW STANDARD)
+--------------------------------
+use aptos_framework::object::{Self, Object};
+
+public entry fun create_object(creator: &signer): Object<MyObject> {
+    let constructor_ref = object::create_object(signer::address_of(creator));
+    let object_signer = object::generate_signer(&constructor_ref);
+
+    move_to(&object_signer, MyObject {
+        data: value
+    });
+
+    object::object_from_constructor_ref(&constructor_ref)
+}
+
+7. TESTING
+----------
+#[test_only]
+use aptos_framework::account;
+
+#[test(creator = @0x123)]
+public fun test_create(creator: &signer) acquires MyResource {
+    // Setup
+    account::create_account_for_test(signer::address_of(creator));
+
+    // Execute
+    initialize(creator);
+
+    // Assert
+    assert!(exists<MyResource>(signer::address_of(creator)), 0);
+}
+
+#[test(user = @0x456)]
+#[expected_failure(abort_code = E_NOT_AUTHORIZED)]
+public fun test_unauthorized(user: &signer) {
+    admin_only(user); // Should fail
+}
+
+===========================================
+FUNGIBLE ASSET PATTERN (NEW TOKEN STANDARD)
+===========================================
+
+use aptos_framework::fungible_asset::{Self, Metadata, FungibleStore};
+use aptos_framework::object::{Self, Object};
+use aptos_framework::primary_fungible_store;
+
+public entry fun create_token(
+    creator: &signer,
+    name: String,
+    symbol: String,
+    decimals: u8,
+    icon_uri: String,
+    project_uri: String,
+) {
+    // Create metadata object
+    let constructor_ref = &object::create_named_object(creator, name);
+
+    // Initialize fungible asset
+    primary_fungible_store::create_primary_store_enabled_fungible_asset(
+        constructor_ref,
+        option::none(), // max_supply
+        name,
+        symbol,
+        decimals,
+        icon_uri,
+        project_uri,
+    );
+
+    // Mint initial supply
+    let mint_ref = fungible_asset::generate_mint_ref(constructor_ref);
+    let creator_store = primary_fungible_store::ensure_primary_store_exists(
+        signer::address_of(creator),
+        object::object_from_constructor_ref<Metadata>(constructor_ref)
+    );
+    fungible_asset::mint_to(&mint_ref, creator_store, initial_supply);
+}
+
+===========================================
+NFT/DIGITAL ASSET PATTERN
+===========================================
+
+use aptos_token_objects::token;
+use aptos_token_objects::collection;
+
+public entry fun create_collection(
+    creator: &signer,
+    description: String,
+    name: String,
+    uri: String,
+) {
+    collection::create_unlimited_collection(
+        creator,
+        description,
+        name,
+        option::none(), // royalty
+        uri,
+    );
+}
+
+public entry fun mint_nft(
+    creator: &signer,
+    collection: String,
+    description: String,
+    name: String,
+    uri: String,
+) {
+    token::create_named_token(
+        creator,
+        collection,
+        description,
+        name,
+        option::none(), // royalty
+        uri,
+    );
+}
+
+===========================================
+COMMON STDLIB IMPORTS
+===========================================
+
+// Core types
+use std::signer;
+use std::vector;
+use std::string::{Self, String};
+use std::option::{Self, Option};
+
+// Aptos framework
+use aptos_framework::account;
+use aptos_framework::coin::{Self, Coin};
+use aptos_framework::aptos_coin::AptosCoin;
+use aptos_framework::timestamp;
+use aptos_framework::event;
+use aptos_framework::object::{Self, Object};
+
+// Storage
+use aptos_std::table::{Self, Table};
+use aptos_std::smart_table::{Self, SmartTable};
+use aptos_std::simple_map::{Self, SimpleMap};
+
+// Assets
+use aptos_framework::fungible_asset::{Self, Metadata, FungibleStore};
+use aptos_framework::primary_fungible_store;
+use aptos_token_objects::collection;
+use aptos_token_objects::token;
+
+===========================================
+ERROR HANDLING
+===========================================
+
+// Define error codes
+const E_NOT_AUTHORIZED: u64 = 1;
+const E_INSUFFICIENT_BALANCE: u64 = 2;
+const E_ALREADY_EXISTS: u64 = 3;
+const E_NOT_FOUND: u64 = 4;
+
+// Use assertions
+assert!(condition, ERROR_CODE);
+assert!(exists<Resource>(addr), E_NOT_FOUND);
+assert!(amount > 0, E_INSUFFICIENT_BALANCE);
+
+// Abort (stops execution, reverts state)
+abort E_NOT_AUTHORIZED
+
+===========================================
+GENERICS
+===========================================
+
+// Generic struct
+struct Container<T: store> has store {
+    item: T
+}
+
+// Generic function
+public fun swap<T>(a: T, b: T): (T, T) {
+    (b, a)
+}
+
+// Type constraints
+public fun store_resource<T: key + store>(account: &signer, value: T) {
+    move_to(account, value);
+}
+
+// Phantom types (for type safety, not stored)
+struct Coin<phantom CoinType> has key {
+    value: u64
+}
+
+===========================================
+VECTOR OPERATIONS
+===========================================
+
+// Create
+let v = vector::empty<u64>();
+let v = vector[1, 2, 3]; // vector literal
+
+// Add elements
+vector::push_back(&mut v, 4);
+
+// Access
+let first = vector::borrow(&v, 0);
+let first_mut = vector::borrow_mut(&mut v, 0);
+
+// Remove
+let last = vector::pop_back(&mut v);
+vector::remove(&mut v, index);
+
+// Iterate
+let i = 0;
+let len = vector::length(&v);
+while (i < len) {
+    let item = vector::borrow(&v, i);
+    // process item
+    i = i + 1;
+}
+
+===========================================
+SCRIPT TRANSACTIONS (MULTI-STEP)
+===========================================
+
+script {
+    use my_addr::my_module;
+
+    fun multi_step_transaction(account: &signer) {
+        // Atomically execute multiple calls
+        my_module::step1(account);
+        my_module::step2(account);
+        my_module::step3(account);
+        // All succeed or all revert
+    }
+}
+
+===========================================
+BEST PRACTICES
+===========================================
+
+1. Always check resource existence before operations
+2. Use error constants for clear error messages
+3. Validate inputs at function entry
+4. Emit events for indexable state changes
+5. Use #[view] for read-only functions (gas-free)
+6. Test edge cases and failure scenarios
+7. Use Objects for composable, transferable resources
+8. Prefer Fungible Assets over legacy Coin
+9. Document public APIs
+10. Keep functions focused and modular
+
+===========================================
+COMMON GOTCHAS
+===========================================
+
+1. Resources can't be copied or dropped (linear types)
+2. Must use 'acquires' annotation when accessing global storage
+3. Can't have two mutable references to same resource
+4. Signer can't be stored or copied
+5. Vector index out of bounds causes abort
+6. Division by zero causes abort
+7. Integer overflow/underflow causes abort
+8. Must unpack or explicitly drop structs without 'drop' ability
+
+===========================================
+DEPLOYMENT COMMANDS
+===========================================
+
+# Initialize account
+aptos init
+
+# Compile
+aptos move compile
+
+# Test
+aptos move test
+
+# Publish
+aptos move publish --named-addresses my_addr=0x123
+
+# Run entry function
+aptos move run \
+  --function-id 0x123::module::function \
+  --args address:0x456 u64:100
+
+# Run view function (free)
+aptos move view \
+  --function-id 0x123::module::get_balance \
+  --args address:0x456
+
+===========================================
+USEFUL RESOURCES
+===========================================
+
+Official Docs:     https://aptos.dev/build/smart-contracts
+Move Book:         https://aptos.dev/build/smart-contracts/book
+Examples:          move-by-examples/ directory
+Framework Source:  aptos-core/aptos-move/framework/
+API Reference:     aptos-dev-llms-full.txt
+
+===========================================

@@ -1,0 +1,539 @@
+===========================================
+BUILDING CLAUDE CODE SKILLS
+For Aptos Move Smart Contract Development
+===========================================
+
+This guide explains how to use the collected documentation to build
+effective Claude Code skills for Aptos and Move development.
+
+===========================================
+OVERVIEW
+===========================================
+
+Claude Code skills allow you to extend Claude's capabilities with
+domain-specific knowledge. For Aptos/Move development, you'll want
+skills that can:
+
+1. Generate Move smart contracts following best practices
+2. Debug and explain existing Move code
+3. Suggest security improvements and optimizations
+4. Create test suites for Move modules
+5. Guide through Aptos-specific patterns (Objects, Fungible Assets, etc.)
+6. Help with TypeScript SDK integration
+
+===========================================
+SKILL CATEGORIES TO BUILD
+===========================================
+
+1. MOVE CONTRACT GENERATION
+   ------------------------
+   Skill name: "move-contract-generator"
+
+   Purpose: Generate Move smart contracts from requirements
+
+   Key knowledge sources:
+   - aptos-dev-llms-full.txt (comprehensive API reference)
+   - move-by-examples/ (practical patterns)
+   - MOVE_QUICK_REFERENCE.txt (syntax and patterns)
+
+   Capabilities:
+   - Generate module structure with proper imports
+   - Create resource structs with correct abilities
+   - Implement entry functions with validation
+   - Add view functions for queries
+   - Include error handling
+   - Generate unit tests
+
+   Example prompt template:
+   "Generate a Move smart contract for [use case] that includes:
+    - Resource definitions with appropriate abilities
+    - Entry functions for [operations]
+    - View functions for [queries]
+    - Event emissions for state changes
+    - Unit tests covering success and failure cases
+    Use the Aptos framework patterns from the documentation."
+
+2. MOVE CODE REVIEWER
+   -------------------
+   Skill name: "move-code-reviewer"
+
+   Purpose: Review Move code for security, efficiency, and best practices
+
+   Key knowledge sources:
+   - aptos-dev-llms-full.txt (security guidelines)
+   - aptos-core/aptos-move/framework/ (canonical examples)
+   - MOVE_QUICK_REFERENCE.txt (common gotchas)
+
+   Review checklist:
+   - Resource safety (no duplication/loss)
+   - Access control with signers
+   - Integer overflow protection
+   - Proper error handling with descriptive codes
+   - Efficient storage usage
+   - Correct ability annotations
+   - Event emission for indexing
+   - Test coverage
+
+   Example usage:
+   "Review this Move contract for security issues and best practices:
+    [paste code]
+    Reference the Aptos framework patterns and security guidelines."
+
+3. FUNGIBLE ASSET EXPERT
+   ----------------------
+   Skill name: "aptos-fungible-assets"
+
+   Purpose: Guide through Fungible Asset (FA) token creation and management
+
+   Key knowledge sources:
+   - aptos-dev-llms-full.txt (FA documentation)
+   - move-by-examples/fungible-asset-launchpad/
+   - move-by-examples/fungible-asset-vesting/
+   - move-by-examples/fungible-asset-voting/
+   - aptos-core/aptos-move/framework/aptos-framework/sources/fungible_asset.move
+
+   Capabilities:
+   - Create FA metadata and stores
+   - Implement minting/burning
+   - Handle transfers with refs
+   - Add vesting schedules
+   - Implement governance/voting
+   - Add tax mechanisms
+   - Manage permissions
+
+   Example usage:
+   "Help me create a fungible asset token with:
+    - 1 billion initial supply
+    - 6 decimal places
+    - Vesting schedule for team tokens
+    - Governance voting capabilities
+    Use the Aptos Fungible Asset standard."
+
+4. NFT/DIGITAL ASSET EXPERT
+   -------------------------
+   Skill name: "aptos-digital-assets"
+
+   Purpose: Guide through NFT creation using Aptos Digital Assets
+
+   Key knowledge sources:
+   - aptos-dev-llms-full.txt (Digital Asset docs)
+   - move-by-examples/nft-launchpad/
+   - move-by-examples/nft-marketplace/
+   - aptos-core/aptos-move/framework/aptos-token-objects/
+
+   Capabilities:
+   - Create collections
+   - Mint NFTs with metadata
+   - Implement marketplace mechanics
+   - Handle royalties
+   - Manage transferability
+   - Add trait/property systems
+
+   Example usage:
+   "Create an NFT collection and marketplace that supports:
+    - Collection-wide royalties
+    - Per-NFT traits and properties
+    - Listing and buying functionality
+    - Auction mechanics
+    Follow the Aptos Digital Asset standard."
+
+5. TESTING SPECIALIST
+   -------------------
+   Skill name: "move-test-generator"
+
+   Purpose: Generate comprehensive test suites for Move contracts
+
+   Key knowledge sources:
+   - aptos-dev-llms-full.txt (testing guidelines)
+   - move-by-examples/ (test examples across all projects)
+   - MOVE_QUICK_REFERENCE.txt (test patterns)
+
+   Capabilities:
+   - Generate success case tests
+   - Generate failure case tests with expected_failure
+   - Create test helpers and fixtures
+   - Test resource lifecycle
+   - Test access control
+   - Test edge cases
+
+   Example usage:
+   "Generate a comprehensive test suite for this Move module:
+    [paste code]
+    Include tests for:
+    - All entry functions (success and failure)
+    - Access control enforcement
+    - Edge cases (zero values, max values, etc.)
+    - Resource state transitions"
+
+6. OBJECT PATTERN EXPERT
+   ----------------------
+   Skill name: "aptos-objects"
+
+   Purpose: Guide through the Aptos Object standard
+
+   Key knowledge sources:
+   - aptos-dev-llms-full.txt (Object documentation)
+   - aptos-core/aptos-move/framework/aptos-framework/sources/object.move
+   - move-by-examples/ (object usage patterns)
+
+   Capabilities:
+   - Create named/unnamed objects
+   - Generate object addresses
+   - Transfer/freeze objects
+   - Extend objects with resources
+   - Implement object refs (DeleteRef, ExtendRef, etc.)
+   - Create composable on-chain primitives
+
+   Example usage:
+   "Help me implement a game item system using Aptos Objects where:
+    - Each item is an object with stats
+    - Items can be transferred
+    - Items can be equipped (frozen during use)
+    - Items can be upgraded with resources
+    Use the Object standard for composability."
+
+7. SDK INTEGRATION HELPER
+   -----------------------
+   Skill name: "aptos-typescript-sdk"
+
+   Purpose: Help integrate Move contracts with TypeScript applications
+
+   Key knowledge sources:
+   - aptos-dev-llms-full.txt (SDK documentation)
+   - move-by-examples/ (frontend integration examples)
+
+   Capabilities:
+   - Generate TypeScript SDK calls
+   - Handle transaction building
+   - Implement view function queries
+   - Setup event listening
+   - Handle wallet connections
+   - Error handling
+
+   Example usage:
+   "Generate TypeScript code to interact with this Move contract:
+    [paste Move code]
+    Include:
+    - Functions to call each entry function
+    - View function queries
+    - Event listening setup
+    - Error handling
+    Use the Aptos TypeScript SDK."
+
+8. SECURITY AUDITOR
+   -----------------
+   Skill name: "move-security-auditor"
+
+   Purpose: Deep security analysis of Move contracts
+
+   Key knowledge sources:
+   - aptos-dev-llms-full.txt (security guidelines)
+   - aptos-core/aptos-move/framework/ (secure patterns)
+
+   Security checks:
+   - Reentrancy vulnerabilities
+   - Integer overflow/underflow
+   - Access control bypasses
+   - Resource duplication/loss
+   - Unchecked external calls
+   - Timestamp dependencies
+   - Front-running risks
+   - Upgrade safety
+
+   Example usage:
+   "Perform a security audit on this Move contract:
+    [paste code]
+    Check for:
+    - Common vulnerabilities
+    - Logic errors
+    - Economic exploits
+    - Upgrade risks
+    Provide detailed findings and remediation steps."
+
+===========================================
+BUILDING A SKILL: STEP BY STEP
+===========================================
+
+1. DEFINE SCOPE
+   ------------
+   - What specific problem does this skill solve?
+   - What Move patterns does it need to know?
+   - What are the common use cases?
+
+2. GATHER KNOWLEDGE
+   ----------------
+   From this documentation collection:
+
+   a. Core concepts:
+      - Start with aptos-dev-llms-full.txt
+      - Read relevant sections thoroughly
+      - Note API signatures and patterns
+
+   b. Practical examples:
+      - Find similar examples in move-by-examples/
+      - Study their structure and patterns
+      - Note how they handle edge cases
+
+   c. Framework reference:
+      - Check aptos-core/aptos-move/framework/ for canonical code
+      - Understand underlying implementations
+      - Note security considerations
+
+   d. Quick reference:
+      - Use MOVE_QUICK_REFERENCE.txt for syntax
+      - Reference common patterns
+      - Check gotchas and best practices
+
+3. CREATE SKILL PROMPT
+   -------------------
+   Structure your skill prompt with:
+
+   a. Context: "You are an expert in [domain]"
+
+   b. Knowledge base: "You have access to:
+      - Aptos official documentation
+      - Move language specifications
+      - Aptos framework source code
+      - Practical examples and patterns"
+
+   c. Capabilities: "You can:
+      - [List specific capabilities]
+      - [With concrete examples]"
+
+   d. Guidelines: "When generating code:
+      - Follow Aptos best practices
+      - Include error handling
+      - Add descriptive comments
+      - Generate tests
+      - Consider security implications"
+
+   e. Output format: "Provide:
+      - Complete, runnable code
+      - Explanations of key decisions
+      - Usage examples
+      - Testing recommendations"
+
+4. TEST THE SKILL
+   --------------
+   - Try common use cases
+   - Test edge cases
+   - Verify code compiles
+   - Run generated tests
+   - Compare with examples in move-by-examples/
+
+5. ITERATE
+   -------
+   - Add missing patterns
+   - Improve error handling
+   - Enhance explanations
+   - Update with new Aptos features
+
+===========================================
+EXAMPLE SKILL IMPLEMENTATION
+===========================================
+
+Here's a sample skill for generating Fungible Asset tokens:
+
+---
+Skill Name: "aptos-fa-generator"
+
+Prompt:
+"""
+You are an expert in Aptos Fungible Asset (FA) development. You have
+comprehensive knowledge of the Aptos FA standard, which is the modern
+token standard replacing the legacy Coin module.
+
+KNOWLEDGE BASE:
+- Aptos Fungible Asset framework (aptos-framework::fungible_asset)
+- Primary fungible store pattern
+- Object-based metadata
+- Ref-based operations (MintRef, BurnRef, TransferRef)
+
+CORE CONCEPTS:
+1. Metadata Object: Stores token info (name, symbol, decimals, URIs)
+2. FungibleStore: Holds actual token balances
+3. Refs: Capabilities for privileged operations
+4. Primary Store: Default store for user addresses
+
+STANDARD PATTERN:
+```move
+module addr::my_token {
+    use aptos_framework::fungible_asset::{Self, Metadata};
+    use aptos_framework::object::{Self, Object};
+    use aptos_framework::primary_fungible_store;
+    use std::option;
+    use std::string;
+
+    struct MyToken has key {
+        mint_ref: fungible_asset::MintRef,
+        burn_ref: fungible_asset::BurnRef,
+        transfer_ref: fungible_asset::TransferRef,
+    }
+
+    public entry fun initialize(creator: &signer) {
+        // Create metadata object
+        let constructor_ref = &object::create_named_object(
+            creator,
+            b"MyToken"
+        );
+
+        // Initialize FA
+        primary_fungible_store::create_primary_store_enabled_fungible_asset(
+            constructor_ref,
+            option::none(), // unlimited supply
+            string::utf8(b"My Token"),
+            string::utf8(b"MTK"),
+            8, // decimals
+            string::utf8(b"https://icon.url"),
+            string::utf8(b"https://project.url"),
+        );
+
+        // Store refs
+        let mint_ref = fungible_asset::generate_mint_ref(constructor_ref);
+        let burn_ref = fungible_asset::generate_burn_ref(constructor_ref);
+        let transfer_ref = fungible_asset::generate_transfer_ref(constructor_ref);
+
+        move_to(creator, MyToken {
+            mint_ref,
+            burn_ref,
+            transfer_ref,
+        });
+    }
+}
+```
+
+When generating FA tokens:
+1. Use Object-based metadata (not legacy Coin)
+2. Enable primary stores for user convenience
+3. Store refs securely (use key ability)
+4. Emit events for indexing
+5. Add view functions for queries
+6. Include comprehensive tests
+7. Consider supply limits
+8. Handle decimals appropriately
+
+OUTPUT FORMAT:
+- Complete module with all necessary imports
+- Initialization function
+- Mint/burn functions (if applicable)
+- Transfer helpers (if needed)
+- View functions for balance/metadata
+- Events for state changes
+- Unit tests
+- Deployment instructions
+"""
+---
+
+===========================================
+SKILL COMBINATIONS
+===========================================
+
+Create workflow skills that combine multiple capabilities:
+
+1. "END-TO-END DAPP"
+   Combines: Contract generation + SDK integration + Testing
+   Use case: Build complete dApp from requirements
+
+2. "TOKEN LAUNCHPAD"
+   Combines: FA expert + NFT expert + Marketplace patterns
+   Use case: Create token launch platforms
+
+3. "DEFI PROTOCOL"
+   Combines: FA expert + Object patterns + Security auditor
+   Use case: Build lending, DEX, or staking protocols
+
+4. "GAME DEVELOPMENT"
+   Combines: Object expert + NFT expert + Testing
+   Use case: Build on-chain games with items/assets
+
+===========================================
+MAINTAINING SKILLS
+===========================================
+
+Keep skills up-to-date:
+
+1. REGULAR UPDATES
+   - Pull latest aptos-dev llms.txt files monthly
+   - Update repositories: git pull in each repo
+   - Review Aptos release notes for new features
+
+2. MONITOR DEPRECATIONS
+   - Watch for framework changes
+   - Update from Coin to Fungible Asset patterns
+   - Note deprecated modules
+
+3. ADD NEW PATTERNS
+   - Study new examples in move-by-examples/
+   - Incorporate community best practices
+   - Add newly discovered patterns
+
+4. IMPROVE FROM USAGE
+   - Track common errors
+   - Add clarifications
+   - Enhance examples
+
+===========================================
+TESTING YOUR SKILLS
+===========================================
+
+Validate skills work correctly:
+
+1. BASIC TESTS
+   - Generate simple contracts
+   - Verify they compile
+   - Run generated tests
+   - Deploy to devnet
+
+2. COMPLEX TESTS
+   - Multi-module projects
+   - Cross-contract interactions
+   - Complex state management
+   - Integration with frontend
+
+3. EDGE CASES
+   - Maximum values
+   - Zero values
+   - Empty collections
+   - Concurrent operations
+
+4. COMPARISON
+   - Compare with move-by-examples/
+   - Match framework patterns
+   - Follow best practices
+
+===========================================
+RESOURCES FOR SKILL DEVELOPMENT
+===========================================
+
+Primary references (in order of use):
+1. aptos-dev-llms-full.txt - Comprehensive API reference
+2. MOVE_QUICK_REFERENCE.txt - Syntax and patterns
+3. move-by-examples/ - Practical implementations
+4. aptos-core/aptos-move/framework/ - Canonical source
+5. README.txt - Navigation guide
+
+Community resources:
+- Aptos Discord: https://discord.gg/aptoslabs
+- GitHub Discussions: https://github.com/aptos-labs/aptos-core/discussions
+- Official docs: https://aptos.dev
+
+===========================================
+NEXT STEPS
+===========================================
+
+1. Choose a skill category from above
+2. Read relevant sections in aptos-dev-llms-full.txt
+3. Study 2-3 examples from move-by-examples/
+4. Create skill prompt using the template
+5. Test with real use cases
+6. Iterate based on results
+7. Share successful patterns
+
+Remember: The best skills are:
+- Focused on specific domains
+- Based on canonical examples
+- Updated regularly
+- Tested thoroughly
+- Well-documented
+
+===========================================
