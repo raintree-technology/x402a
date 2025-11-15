@@ -77,12 +77,13 @@ describe("buildPaymentRequirements", () => {
     const requirements = buildPaymentRequirements(routeConfig, config, "/api/stream");
 
     expect(requirements).toEqual({
-      x402Version: 1,
       scheme: "exact",
       network: "aptos-testnet",
       maxAmountRequired: "1000000",
       resource: "/api/stream",
       payTo: "0x123",
+      description: "Test payment",
+      asset: "0x1::aptos_coin::AptosCoin",
     });
   });
 
@@ -119,12 +120,13 @@ describe("buildPaymentRequirements", () => {
 
   it("should use custom payment requirements if provided", () => {
     const customRequirements = {
-      x402Version: 1,
       scheme: "exact" as const,
       network: "aptos-mainnet" as const,
       maxAmountRequired: "2000000",
       resource: "custom",
       payTo: "0x999",
+      description: "Custom payment",
+      asset: "0x1::aptos_coin::AptosCoin",
     };
 
     const routeConfig: RouteConfig = {
