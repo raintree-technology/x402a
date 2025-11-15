@@ -411,10 +411,10 @@ await wallet.signAndSubmitTransaction({
 
 ##  Roadmap
 
-### v0.2.0 ✅ (Current Release)
-- ✅ Fungible Assets (FA) support
-- ✅ Single and split FA payments
-- ✅ Backward compatible with Coin
+### v0.2.0 (Current Release)
+- Fungible Assets (FA) support
+- Single and split FA payments
+- Backward compatible with Coin
 
 ### v0.3.0 (Planned)
 - React hooks (`useX402Payment`)
@@ -453,10 +453,10 @@ MIT
 **Status**: Experimental - Testnet Only
 **Last Updated**: 2025-11-14
 
-## ✨ What's New in v0.2.0
+## What's New in v0.2.0
 
-- 🎉 **Fungible Asset Support**: Transfer any FA using `transfer_sponsored_fa` and `transfer_sponsored_fa_split`
-- 🔄 **Backward Compatible**: Existing APT Coin functions work unchanged
-- 🏪 **Primary Store Integration**: Seamless FA transfers using Aptos primary stores
-- 📊 **New Events**: Dedicated `TransferFAEvent` and `TransferFASplitEvent` for FA tracking
-- 🔒 **Same Security**: All security features apply to both Coin and FA transfers
+- **Fungible Asset Support**: Transfer any FA using `transfer_sponsored_fa` and `transfer_sponsored_fa_split`
+- **Backward Compatible**: Existing APT Coin functions work unchanged
+- **Primary Store Integration**: Seamless FA transfers using Aptos primary stores
+- **New Events**: Dedicated `TransferFAEvent` and `TransferFASplitEvent` for FA tracking
+- **Same Security**: All security features apply to both Coin and FA transfers
