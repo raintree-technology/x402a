@@ -1,4 +1,5 @@
-import { Aptos, AptosConfig, Network } from "@aptos-labs/ts-sdk";
+import { Aptos } from "@aptos-labs/ts-sdk";
+import { getAptosConfig } from "../utils/aptos";
 import { createLogger } from "../utils/logger";
 
 const logger = createLogger({ component: "HealthCheck" });
@@ -277,26 +278,6 @@ async function checkWallet(
       responseTime,
     };
   }
-}
-
-function getAptosConfig(network: string): AptosConfig {
-  if (network.startsWith("http://") || network.startsWith("https://")) {
-    return new AptosConfig({
-      fullnode: network,
-    });
-  }
-
-  if (network === "testnet") {
-    return new AptosConfig({ network: Network.TESTNET });
-  }
-  if (network === "mainnet") {
-    return new AptosConfig({ network: Network.MAINNET });
-  }
-  if (network === "devnet") {
-    return new AptosConfig({ network: Network.DEVNET });
-  }
-
-  throw new Error(`Unknown network: ${network}`);
 }
 
 export function createHealthHandler(config: HealthCheckConfig) {

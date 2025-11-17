@@ -14,6 +14,8 @@ import type {
 	PricingConfig,
 } from "../types/index.js";
 import { ShelbyNodeClient, type ShelbyClientConfig } from "@shelby-protocol/sdk/node";
+import { ShelbyRPCClient } from "./ShelbyRPCClient.js";
+import { InMemorySessionStorage, type ISessionStorage } from "./SessionStorage.js";
 import pino from "pino";
 
 /**
@@ -30,8 +32,12 @@ export interface ShelbyGatewayConfig {
 	logger?: pino.Logger;
 	/** Shelby network (defaults to SHELBYNET) */
 	network?: "SHELBYNET";
-	/** Optional Shelby API key for higher rate limits */
-	apiKey?: string;
+	/** Shelby API key for RPC access (required for production) */
+	apiKey: string;
+	/** Optional session storage (defaults to InMemorySessionStorage) */
+	sessionStorage?: ISessionStorage;
+	/** Shelby RPC base URL (optional, defaults to production URL) */
+	shelbyRpcUrl?: string;
 }
 
 /**
@@ -68,10 +74,14 @@ export interface ShelbyGatewayConfig {
  * ```
  */
 export class ShelbyGateway {
+	private static readonly REQUEST_ID_PREFIX = "req_";
+
 	private facilitator: X402Facilitator;
 	private pricing: PricingConfig;
 	private logger: pino.Logger;
-	private sessions: Map<string, ShelbySession>; // In-memory session cache
+	private sessionStorage: ISessionStorage;
+	private shelbyRPC: ShelbyRPCClient;
+	// @ts-expect-error - shelbyClient will be used for blob operations once SDK is updated
 	private shelbyClient: ShelbyNodeClient;
 
 	constructor(config: ShelbyGatewayConfig) {
@@ -83,25 +93,39 @@ export class ShelbyGateway {
 				name: "x402s-gateway",
 				level: process.env.LOG_LEVEL || "info",
 			});
-		this.sessions = new Map();
 
-		// Initialize Shelby client
-		const shelbyConfig: ShelbyClientConfig = {
-			network: config.network || "SHELBYNET",
-		};
+		// Initialize session storage (persistent or in-memory)
+		this.sessionStorage = config.sessionStorage || new InMemorySessionStorage();
 
-		// Add API key if provided (optional - works in anonymous mode without it)
-		if (config.apiKey) {
-			shelbyConfig.apiKey = config.apiKey;
+		// Initialize Shelby RPC client for session management
+		this.shelbyRPC = new ShelbyRPCClient({
+			apiKey: config.apiKey,
+			baseUrl: config.shelbyRpcUrl,
+			logger: this.logger,
+		});
+
+		// Initialize Shelby SDK client for blob operations
+		if (config.shelbyClient) {
+			this.shelbyClient = config.shelbyClient;
+		} else {
+			const shelbyConfig: ShelbyClientConfig = {
+				network: config.network || "SHELBYNET",
+				apiKey: config.apiKey,
+			};
+
+			this.shelbyClient = new ShelbyNodeClient(shelbyConfig);
 		}
 
-		this.shelbyClient = config.shelbyClient || new ShelbyNodeClient(shelbyConfig);
+		const storageType = config.sessionStorage
+			? config.sessionStorage.constructor.name
+			: "InMemorySessionStorage";
 
 		this.logger.info(
 			{
 				network: config.network || "SHELBYNET",
 				hasApiKey: !!config.apiKey,
-				shelbySDK: this.shelbyClient ? "initialized" : "not available",
+				sessionStorage: storageType,
+				shelbySDK: "initialized",
 			},
 			"ShelbyGateway initialized",
 		);
@@ -151,12 +175,9 @@ export class ShelbyGateway {
 			}
 
 			// Step 3: Create Shelby session
-			// NOTE: This is a placeholder - actual Shelby SDK integration needed
-			const amountInOctas =
-				typeof paymentOptions.amount === "string" ? paymentOptions.amount : paymentOptions.amount[0] || "0";
 			const session = await this.createShelbySession({
 				userAddress: paymentOptions.from,
-				amountInOctas,
+				amountInOctas: this.normalizeAmount(paymentOptions.amount),
 				txHash: paymentResult.txHash,
 				octasPerChunkset: this.pricing.octasPerChunkset,
 			});
@@ -169,8 +190,8 @@ export class ShelbyGateway {
 				"Shelby session created",
 			);
 
-			// Cache session
-			this.sessions.set(session.sessionId, session);
+			// Store session in persistent storage
+			await this.sessionStorage.set(session.sessionId, session);
 
 			return {
 				valid: true,
@@ -184,7 +205,7 @@ export class ShelbyGateway {
 			log.error({ error }, "Error creating session from payment");
 			return {
 				valid: false,
-				error: error instanceof Error ? error.message : "Unknown error",
+				error: this.getErrorMessage(error),
 			};
 		}
 	}
@@ -193,14 +214,27 @@ export class ShelbyGateway {
 	 * Get session information
 	 */
 	async getSession(sessionId: string): Promise<ShelbySession | null> {
-		// Check cache first
-		const cached = this.sessions.get(sessionId);
-		if (cached) {
-			return cached;
+		// Try local storage first
+		const session = await this.sessionStorage.get(sessionId);
+		if (session) {
+			return session;
 		}
 
-		// TODO: Query Shelby API for session
-		// For now, return null
+		// Try Shelby RPC (when API is available)
+		const rpcSession = await this.shelbyRPC.getSession(sessionId);
+		if (rpcSession) {
+			// Convert RPC session to local format and cache
+			const localSession: ShelbySession = {
+				sessionId: rpcSession.sessionId,
+				userAddress: rpcSession.userIdentity,
+				chunksetsRemaining: rpcSession.chunksetsRemaining,
+				createdAt: rpcSession.createdAt,
+				expiresAt: rpcSession.expiresAt,
+			};
+			await this.sessionStorage.set(sessionId, localSession);
+			return localSession;
+		}
+
 		return null;
 	}
 
@@ -221,16 +255,20 @@ export class ShelbyGateway {
 			return { success: false, error: "Insufficient chunksets in session" };
 		}
 
-		// TODO: Call Shelby API to use session
-		// POST /v1/sessions/{sessionId}/use
+		// Try using Shelby RPC first (when API is available)
+		const rpcResult = await this.shelbyRPC.useSession({
+			sessionId,
+			chunksetsToConsume,
+		});
 
-		// Update local cache
-		session.chunksetsRemaining -= chunksetsToConsume;
-		this.sessions.set(sessionId, session);
+		// Update local storage
+		const newChunksets = session.chunksetsRemaining - chunksetsToConsume;
+		await this.sessionStorage.updateChunksets(sessionId, newChunksets);
 
 		return {
-			success: true,
-			chunksetsRemaining: session.chunksetsRemaining,
+			success: rpcResult.success,
+			chunksetsRemaining: rpcResult.chunksetsRemaining || newChunksets,
+			error: rpcResult.error,
 		};
 	}
 
@@ -238,8 +276,7 @@ export class ShelbyGateway {
 	 * Calculate how many chunksets can be purchased with payment amount
 	 */
 	private calculateChunksets(amount: string | string[]): number {
-		const amountStr = typeof amount === "string" ? amount : amount[0] || "0";
-		const amountInOctas = BigInt(amountStr);
+		const amountInOctas = BigInt(this.normalizeAmount(amount));
 		const octasPerChunkset = BigInt(this.pricing.octasPerChunkset);
 
 		const chunksets = Number(amountInOctas / octasPerChunkset);
@@ -248,38 +285,35 @@ export class ShelbyGateway {
 	}
 
 	/**
-	 * Create Shelby session via SDK
+	 * Create Shelby session via RPC client
 	 *
-	 * NOTE: Shelby SDK (v0.0.5) doesn't expose session APIs yet.
-	 * For now we create a virtual session tracked locally.
-	 * The shelbyClient is initialized and ready for future blob upload/download operations.
+	 * Uses ShelbyRPCClient for session creation
+	 * (Virtual session until Shelby RPC exposes the endpoint)
 	 */
 	private async createShelbySession(
 		options: CreateSessionFromPaymentOptions,
 	): Promise<ShelbySession> {
-		const chunksets = Number(
-			BigInt(options.amountInOctas) / BigInt(options.octasPerChunkset || this.pricing.octasPerChunkset),
-		);
+		const amountInOctas = BigInt(options.amountInOctas);
+		const octasPerChunkset = BigInt(this.pricing.octasPerChunkset);
+		const chunksets = Number(amountInOctas / octasPerChunkset);
 
-		// Create virtual session
-		// When Shelby adds session APIs, we'll integrate here:
-		// const response = await this.shelbyClient.rpc.sessions.create({
-		//   userIdentity: options.userAddress,
-		//   chunksets,
-		//   fundingTx: options.txHash,
-		// });
+		// Create session via Shelby RPC
+		const rpcSession = await this.shelbyRPC.createSession({
+			userIdentity: options.userAddress,
+			chunksets,
+			fundingTxHash: options.txHash,
+			expirationSeconds: 86400, // 24 hours
+		});
 
+		// Convert RPC session to local format
 		const session: ShelbySession = {
-			sessionId: this.generateSessionId(),
-			userAddress: options.userAddress,
-			chunksetsRemaining: chunksets,
-			createdAt: Date.now(),
-			expiresAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
+			sessionId: rpcSession.sessionId,
+			userAddress: rpcSession.userIdentity,
+			chunksetsRemaining: rpcSession.chunksetsRemaining,
+			createdAt: rpcSession.createdAt,
+			expiresAt: rpcSession.expiresAt,
 			fundingTxHash: options.txHash,
 		};
-
-		// Store session
-		this.sessions.set(session.sessionId, session);
 
 		this.logger.info(
 			{
@@ -288,23 +322,37 @@ export class ShelbyGateway {
 				chunksets,
 				txHash: options.txHash,
 			},
-			"Virtual Shelby session created",
+			"Shelby session created via RPC",
 		);
 
 		return session;
 	}
 
 	/**
-	 * Generate unique session ID
+	 * Generate unique ID with given prefix
 	 */
-	private generateSessionId(): string {
-		return `shelby_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+	private generateId(prefix: string): string {
+		return `${prefix}${Date.now()}_${Math.random().toString(36).substring(7)}`;
 	}
 
 	/**
 	 * Generate request ID for logging
 	 */
 	private generateRequestId(): string {
-		return `req_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+		return this.generateId(ShelbyGateway.REQUEST_ID_PREFIX);
+	}
+
+	/**
+	 * Normalize amount to string (handles both single and array formats)
+	 */
+	private normalizeAmount(amount: string | string[]): string {
+		return typeof amount === "string" ? amount : amount[0] || "0";
+	}
+
+	/**
+	 * Extract error message from unknown error type
+	 */
+	private getErrorMessage(error: unknown): string {
+		return error instanceof Error ? error.message : "Unknown error";
 	}
 }

@@ -15,6 +15,9 @@ export type {
   X402PaymentParams,
 } from "./client/hooks/useX402Payment";
 export { useX402Payment } from "./client/hooks/useX402Payment";
+export { calculatePaymentAmounts } from "./client/hooks/usePaymentCalculation";
+export { initializeRegistry } from "./client/hooks/useRegistryInit";
+export { executePaymentTransaction } from "./client/hooks/usePaymentExecution";
 export {
   calculateExpiration,
   getChainId,

@@ -2,7 +2,7 @@ import type { PaymentPayload } from "x402a";
 import { DEFAULT_NETWORK, DEFAULT_SCHEME } from "../config/defaults";
 import type { MiddlewareConfig, RouteConfig, VerificationResult } from "../types";
 import type { PaymentRequirements } from "./protocol";
-import { parsePaymentHeader, X402_HEADER, X402_RESPONSE_HEADER } from "./protocol";
+import { parsePaymentHeader, X402_RESPONSE_HEADER } from "./protocol";
 
 export function buildPaymentRequirements(
   routeConfig: RouteConfig,
@@ -51,10 +51,6 @@ function matchPattern(pathname: string, pattern: string): boolean {
 
   const regex = new RegExp(`^${regexPattern}$`);
   return regex.test(pathname);
-}
-
-export function getPaymentHeader(request: Request): string | null {
-  return request.headers.get(X402_HEADER);
 }
 
 export function parsePaymentFromHeader(headerValue: string | null): {

@@ -3,24 +3,6 @@
  */
 
 /**
- * Shelby payment information with session mapping
- */
-export interface ShelbyPayment {
-	/** User's Aptos address */
-	from: string;
-	/** Recipient address */
-	to: string;
-	/** Payment amount in octas */
-	amount: string;
-	/** Shelby session ID created from this payment */
-	sessionId?: string;
-	/** Number of chunksets this payment purchased */
-	chunksetsPurchased?: number;
-	/** Transaction hash on Aptos */
-	txHash?: string;
-}
-
-/**
  * Payment verification result
  */
 export interface PaymentVerificationResult {

@@ -11,9 +11,9 @@
 export type * from "./types/index.js";
 
 // Re-export server components
-export type { ShelbyGatewayConfig } from "./server/index.js";
-export { ShelbyGateway } from "./server/index.js";
+export type { ShelbyGatewayConfig } from "./server/ShelbyGateway.js";
+export { ShelbyGateway } from "./server/ShelbyGateway.js";
 
 // Re-export client components
-export type { UseShelbySessionConfig, UseShelbySessionReturn } from "./client/index.js";
-export { useShelbySession } from "./client/index.js";
+export type { UseShelbySessionConfig, UseShelbySessionReturn } from "./client/hooks/useShelbySession.js";
+export { useShelbySession } from "./client/hooks/useShelbySession.js";

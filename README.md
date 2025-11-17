@@ -204,7 +204,11 @@ x402a/
 │   │   ├── src/server/     # Facilitator server
 │   │   └── src/types/      # TypeScript types
 │   ├── x402a-next/         # Next.js middleware
-│   └── x402a-contract/     # Move smart contract
+│   ├── x402a-contract/     # Move smart contract (DEPLOYED ✅)
+│   └── x402s/              # Shelby Protocol integration (READY ✅)
+│       ├── src/server/     # Session management, RPC client
+│       ├── src/client/     # React hooks for storage
+│       └── DEPLOYMENT.md   # Full deployment guide
 └── examples/
     └── nextjs-app-router/  # Example Next.js app
 ```
@@ -287,7 +291,21 @@ aptos move test
 
 ##  Deployment
 
-### 1. Deploy Contract
+### Contract Status ✅
+
+**x402a contract is deployed and operational on Aptos Testnet:**
+
+```
+Contract Address: 0x966eb1d2d3ed1e199f7d92335b5bb40f7a79dbbfb142ed951035bf78ba1b9744
+Network:          Aptos Testnet
+Module:           x402_transfer
+Status:           Live and operational
+Explorer:         https://explorer.aptoslabs.com/account/0x966eb1d2d3ed1e199f7d92335b5bb40f7a79dbbfb142ed951035bf78ba1b9744?network=testnet
+```
+
+### 1. Deploy Your Own Contract (Optional)
+
+If you want to deploy your own instance:
 
 ```bash
 cd packages/x402a-contract
@@ -400,11 +418,73 @@ await wallet.signAndSubmitTransaction({
 
 ---
 
+##  x402s - Shelby Protocol Integration
+
+**x402s** extends x402a with [Shelby Protocol](https://shelby.xyz) decentralized storage integration.
+
+### What is x402s?
+
+x402s converts APT payments into Shelby storage sessions:
+- User pays APT via x402a → Gets storage quota on Shelby network
+- 1 chunkset = 10 MB user data (16 MB with erasure coding)
+- Default pricing: 0.001 APT per chunkset
+
+### Architecture
+
+```
+User → x402a Payment (APT) → x402s Gateway → Shelby Session → Shelby Storage
+```
+
+### Quick Start
+
+```bash
+npm install x402s @shelby-protocol/sdk
+```
+
+```typescript
+import { ShelbyGateway } from 'x402s/server';
+import { X402Facilitator } from 'x402a/server';
+
+const gateway = new ShelbyGateway({
+  facilitator: new X402Facilitator({
+    privateKey: process.env.FACILITATOR_PRIVATE_KEY,
+    contractAddress: '0x966eb1d2d3ed1e199f7d92335b5bb40f7a79dbbfb142ed951035bf78ba1b9744',
+  }),
+  pricing: {
+    octasPerChunkset: '100000',     // 0.001 APT per chunkset
+    minPaymentOctas: '1000000',      // 0.01 APT minimum
+    maxChunksetsPerSession: 1000,    // 1 GB max
+  },
+  apiKey: process.env.SHELBY_API_KEY,
+});
+
+// User pays 0.1 APT → Gets 100 chunksets (1 GB)
+const result = await gateway.createSessionFromPayment(paymentOptions);
+```
+
+### Features
+
+- **Production-ready storage backends**: Redis, PostgreSQL, or in-memory
+- **Shelby RPC client**: Direct API integration for session management
+- **React hooks**: `useShelbySession` for client integration
+- **Complete deployment guide**: See `packages/x402s/DEPLOYMENT.md`
+
+### Status
+
+- ✅ x402a contract deployed on Aptos Testnet
+- ✅ Session management implemented
+- ✅ Storage backends (Redis, PostgreSQL, Memory)
+- ✅ Comprehensive deployment documentation
+- ⏳ Waiting for Shelby RPC session APIs (using virtual sessions)
+
+---
+
 ##  Documentation
 
 - **IMPLEMENTATION_COMPLETE.md** - Complete implementation guide
 - **DEPLOYMENT_CHECKLIST.md** - Detailed deployment steps
 - **SECURITY_IMPLEMENTATION_COMPLETE.md** - Security audit report
+- **packages/x402s/DEPLOYMENT.md** - Shelby integration deployment guide
 - **Move contract** - Inline documentation in source
 
 ---

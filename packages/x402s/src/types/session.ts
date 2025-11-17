@@ -33,29 +33,3 @@ export interface CreateSessionFromPaymentOptions {
 	/** Conversion rate: how many octas per chunkset */
 	octasPerChunkset?: string;
 }
-
-/**
- * Session pool statistics
- */
-export interface SessionPoolStats {
-	/** Total active sessions */
-	activeSessions: number;
-	/** Total chunksets available across all sessions */
-	totalChunksetsAvailable: number;
-	/** Number of sessions created in last hour */
-	sessionsCreatedLastHour: number;
-}
-
-/**
- * Chunkset usage information
- */
-export interface ChunksetUsage {
-	/** Session ID */
-	sessionId: string;
-	/** Number of chunksets consumed */
-	chunksetsUsed: number;
-	/** Timestamp of usage */
-	usedAt: number;
-	/** Operation that consumed chunksets (e.g., 'search', 'upload', 'download') */
-	operation: string;
-}

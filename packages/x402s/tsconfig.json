@@ -5,16 +5,7 @@
     "rootDir": "./src",
     /* Disable for tsup compatibility */
     "incremental": false,
-    "composite": false,
-    /* Path aliases */
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"],
-      "@/types/*": ["./src/types/*"],
-      "@/utils/*": ["./src/utils/*"],
-      "@/client/*": ["./src/client/*"],
-      "@/server/*": ["./src/server/*"]
-    }
+    "composite": false
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]

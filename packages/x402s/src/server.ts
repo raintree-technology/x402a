@@ -7,5 +7,7 @@
  * ```
  */
 
-export * from "./server/index.js";
+export * from "./server/ShelbyGateway.js";
+export * from "./server/ShelbyRPCClient.js";
+export * from "./server/SessionStorage.js";
 export type * from "./types/index.js";

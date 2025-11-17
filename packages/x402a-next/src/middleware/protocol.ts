@@ -1,11 +1,9 @@
-// Import types from main package to avoid duplication
+// Import types and constants from main package to avoid duplication
 import type { AptosPaymentPayloadData, PaymentPayload, PaymentRequirements } from "x402a/server";
+import { X402_HEADER, X402_RESPONSE_HEADER, X402_VERSION } from "x402a/server";
 
-export const X402_HEADER = "X-Payment";
-export const X402_RESPONSE_HEADER = "X-Payment-Response";
-export const X402_VERSION = 1;
-
-// Re-export types for convenience
+// Re-export for convenience
+export { X402_HEADER, X402_RESPONSE_HEADER, X402_VERSION };
 export type { PaymentRequirements, PaymentPayload, AptosPaymentPayloadData };
 
 export function parsePaymentHeader(paymentHeader: string): PaymentPayload {

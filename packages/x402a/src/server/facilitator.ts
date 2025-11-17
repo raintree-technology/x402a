@@ -3,10 +3,8 @@ import {
   AccountAddress,
   AccountAuthenticator,
   Aptos,
-  AptosConfig,
   Deserializer,
   Ed25519PrivateKey,
-  Network,
   SimpleTransaction,
 } from "@aptos-labs/ts-sdk";
 import type {
@@ -19,6 +17,8 @@ import type {
   TransactionPayloadForSigning,
 } from "../types";
 import { SUPPORTED_NETWORKS, SUPPORTED_SCHEMES, X402_VERSION } from "../types";
+import { hexToBytes } from "../client/encoding";
+import { getAptosConfig } from "../utils/aptos";
 import { createLogger } from "../utils/logger";
 
 export interface FacilitatorConfig {
@@ -54,7 +54,7 @@ export class X402Facilitator {
     const privateKey = new Ed25519PrivateKey(config.privateKey);
     this.account = Account.fromPrivateKey({ privateKey });
 
-    const aptosConfig = this.getAptosConfig(config.network);
+    const aptosConfig = getAptosConfig(config.network);
     this.aptos = new Aptos(aptosConfig);
 
     this.contractAddress = config.contractAddress;
@@ -67,26 +67,6 @@ export class X402Facilitator {
     });
 
     this.logger.info("Facilitator initialized");
-  }
-
-  private getAptosConfig(network: string): AptosConfig {
-    if (network.startsWith("http://") || network.startsWith("https://")) {
-      return new AptosConfig({
-        fullnode: network,
-      });
-    }
-
-    if (network === "testnet") {
-      return new AptosConfig({ network: Network.TESTNET });
-    }
-    if (network === "mainnet") {
-      return new AptosConfig({ network: Network.MAINNET });
-    }
-    if (network === "devnet") {
-      return new AptosConfig({ network: Network.DEVNET });
-    }
-
-    throw new Error(`Unknown network: ${network}`);
   }
 
   async submitPayment(options: SubmitPaymentOptions): Promise<SubmitPaymentResult> {
@@ -162,7 +142,7 @@ export class X402Facilitator {
 
   async isNonceUsed(account: string, nonce: string): Promise<boolean> {
     try {
-      const nonceBytes = this.hexToBytes(nonce);
+      const nonceBytes = hexToBytes(nonce);
 
       const result = await this.aptos.view({
         payload: {
@@ -290,7 +270,7 @@ export class X402Facilitator {
       this.logger.debug("Submitting sponsored payment");
 
       // Parse user's authenticator from hex
-      const userAuthBytes = this.hexToBytes(userAuthenticatorHex);
+      const userAuthBytes = hexToBytes(userAuthenticatorHex);
 
       // Sign as fee payer
       const feePayerAuthenticator = await this.aptos.transaction.signAsFeePayer({
@@ -346,15 +326,6 @@ export class X402Facilitator {
 
   getAddress(): string {
     return this.account.accountAddress.toString();
-  }
-
-  private hexToBytes(hex: string): Uint8Array {
-    const cleanHex = hex.startsWith("0x") ? hex.slice(2) : hex;
-    const bytes = new Uint8Array(cleanHex.length / 2);
-    for (let i = 0; i < cleanHex.length; i += 2) {
-      bytes[i / 2] = parseInt(cleanHex.substring(i, i + 2), 16);
-    }
-    return bytes;
   }
 }
 

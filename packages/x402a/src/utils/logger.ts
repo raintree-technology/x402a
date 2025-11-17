@@ -15,8 +15,6 @@ function getLogLevel(): LogLevel {
   return process.env.NODE_ENV === "production" ? "info" : "debug";
 }
 
-let _logger: ReturnType<typeof pino> | null = null;
-
 interface PinoConfig {
   level: LogLevel;
   base: {
@@ -40,9 +38,7 @@ interface PinoConfig {
   };
 }
 
-function getLogger() {
-  if (_logger) return _logger;
-
+function createBaseLogger() {
   const config: PinoConfig = {
     level: getLogLevel(),
     base: {
@@ -71,17 +67,11 @@ function getLogger() {
     };
   }
 
-  _logger = pino(config);
-  return _logger;
+  return pino(config);
 }
 
-export const logger = new Proxy({} as ReturnType<typeof pino>, {
-  get(_target, prop) {
-    const instance = getLogger();
-    const value = instance[prop as keyof typeof instance];
-    return typeof value === "function" ? value.bind(instance) : value;
-  },
-});
+// Simplified: Direct instance instead of Proxy pattern
+export const logger = createBaseLogger();
 
 export function createLogger(context: Record<string, unknown>) {
   return logger.child(context);

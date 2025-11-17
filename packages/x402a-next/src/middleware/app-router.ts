@@ -2,12 +2,12 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import type { MiddlewareConfig } from "../types";
 import { createLogger, generateCorrelationId } from "../utils/logger";
+import { X402_HEADER } from "./protocol";
 import {
   buildPaymentRequirements,
   create402Response,
   createSuccessResponse,
   debug,
-  getPaymentHeader,
   matchRoute,
   parsePaymentFromHeader,
   verifyPayment,
@@ -36,7 +36,7 @@ export function createPaymentMiddleware(config: MiddlewareConfig) {
 
     const requirements = buildPaymentRequirements(routeConfig, config, pathname);
 
-    const paymentHeader = getPaymentHeader(request);
+    const paymentHeader = request.headers.get(X402_HEADER);
 
     if (!paymentHeader) {
       logger.info("No payment header, returning 402", { correlationId, pathname });

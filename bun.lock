@@ -46,7 +46,7 @@
     },
     "packages/x402a": {
       "name": "x402a",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "@aptos-labs/ts-sdk": "^1.30.0",
         "@aptos-labs/wallet-adapter-react": "^3.7.2",
@@ -75,7 +75,7 @@
     },
     "packages/x402a-next": {
       "name": "x402a-next",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "dependencies": {
         "pino": "^10.1.0",
         "pino-pretty": "^13.1.2",
@@ -113,8 +113,7 @@
       "dependencies": {
         "@aptos-labs/ts-sdk": "^1.30.0",
         "pino": "^10.1.0",
-        "x402a": "workspace:*",
-        "zod": "^3.22.4",
+        "x402a": "^0.2.1",
       },
       "devDependencies": {
         "@testing-library/react": "^14.1.2",

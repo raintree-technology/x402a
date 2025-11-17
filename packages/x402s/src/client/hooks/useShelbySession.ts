@@ -5,6 +5,13 @@
 import { useState, useCallback, useEffect } from "react";
 import type { ShelbySession, PaymentVerificationResult } from "../../types/index.js";
 
+/**
+ * Extract error message from unknown error type
+ */
+function getErrorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : "Unknown error";
+}
+
 export interface UseShelbySessionConfig {
 	/** API endpoint for creating sessions (e.g., '/api/shelby/sessions') */
 	createSessionEndpoint: string;
@@ -74,8 +81,7 @@ export function useShelbySession(config: UseShelbySessionConfig): UseShelbySessi
 	const lowChunksetsThreshold = config.lowChunksetsThreshold || 10;
 
 	// Check if session needs refill
-	const needsRefill =
-		!session || session.chunksetsRemaining === 0 || session.chunksetsRemaining < lowChunksetsThreshold;
+	const needsRefill = !session || session.chunksetsRemaining < lowChunksetsThreshold;
 
 	/**
 	 * Create session from x402a payment
@@ -109,7 +115,7 @@ export function useShelbySession(config: UseShelbySessionConfig): UseShelbySessi
 
 				return result;
 			} catch (err) {
-				const errorMsg = err instanceof Error ? err.message : "Unknown error";
+				const errorMsg = getErrorMessage(err);
 				setError(errorMsg);
 				return {
 					valid: false,
@@ -149,7 +155,7 @@ export function useShelbySession(config: UseShelbySessionConfig): UseShelbySessi
 				config.onLowChunksets?.(updatedSession.chunksetsRemaining);
 			}
 		} catch (err) {
-			setError(err instanceof Error ? err.message : "Unknown error");
+			setError(getErrorMessage(err));
 		} finally {
 			setIsLoading(false);
 		}
